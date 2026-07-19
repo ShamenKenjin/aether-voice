@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="th" data-lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aether — Voice AI Assistant | BSF Blueprint</title>
+<style>
+:root {
+  --bg: #0a0a1a;
+  --surface: rgba(20,20,50,0.9);
+  --border: rgba(0,240,255,0.15);
+  --text: #e0e0f0;
+  --text-dim: #8899bb;
+  --cyan: #00f0ff;
+  --magenta: #ff00ff;
+  --gold: #ffd700;
+  --red: #ff4466;
+  --green: #00ff88;
+  --glow-cyan: 0 0 20px rgba(0,240,255,0.3);
+  --glow-magenta: 0 0 20px rgba(255,0,255,0.3);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  line-height: 1.7;
+  position: relative;
+  overflow-x: hidden;
+}
+/* Animated background grid */
+body::before {
+  content: '';
+  position: fixed; inset:0;
+  background:
+    linear-gradient(rgba(0,240,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,240,255,0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: gridShift 20s linear infinite;
+  pointer-events: none; z-index:0;
+}
+@keyframes gridShift { to { background-position: 60px 60px; } }
+
+.container { position:relative; z-index:1; max-width:960px; margin:0 auto; padding:2rem 1.5rem; }
+
+h1 { font-size:2.2rem; text-align:center; margin-bottom:0.3rem; }
+h1 .glow { color:var(--cyan); text-shadow:var(--glow-cyan); }
+h2 {
+  color:var(--cyan); font-size:1.4rem;
+  border-bottom:1px solid var(--border);
+  padding-bottom:0.5rem; margin:2.5rem 0 1.2rem;
+}
+h3 { color:var(--magenta); font-size:1.1rem; margin:1.5rem 0 0.8rem; }
+
+.lang-toggle {
+  position:fixed; top:1rem; right:1rem; z-index:100;
+  display:flex; gap:4px;
+}
+.lang-toggle button {
+  background:var(--surface); border:1px solid var(--border);
+  color:var(--text); padding:6px 14px; cursor:pointer;
+  border-radius:6px; font-size:0.85rem; transition:all 0.2s;
+}
+.lang-toggle button.active {
+  background:var(--cyan); color:var(--bg); border-color:var(--cyan);
+  box-shadow:var(--glow-cyan);
+}
+
+.th, .en { display:none; }
+[data-lang="th"] .th { display:block; }
+[data-lang="th"] .th-inline { display:inline; }
+[data-lang="en"] .en { display:block; }
+[data-lang="en"] .en-inline { display:inline; }
+
+p { margin-bottom:0.8rem; color:var(--text-dim); }
+
+table { width:100%; border-collapse:collapse; margin:1rem 0; font-size:0.9rem; }
+th, td { border:1px solid var(--border); padding:8px 12px; text-align:left; }
+th { background:rgba(0,240,255,0.08); color:var(--cyan); }
+td { color:var(--text-dim); }
+
+ul { margin:0.5rem 0 1rem 1.5rem; color:var(--text-dim); }
+li { margin-bottom:0.3rem; }
+code { background:rgba(0,240,255,0.1); color:var(--cyan); padding:2px 6px; border-radius:4px; font-size:0.85em; }
+
+.badge {
+  display:inline-block; padding:3px 10px; border-radius:12px;
+  font-size:0.75rem; font-weight:600; margin-right:4px;
+}
+.badge-cyan { background:rgba(0,240,255,0.15); color:var(--cyan); }
+.badge-magenta { background:rgba(255,0,255,0.15); color:var(--magenta); }
+.badge-green { background:rgba(0,255,136,0.15); color:var(--green); }
+
+.mermaid-container {
+  background:rgba(10,10,30,0.6); border:1px solid var(--border);
+  border-radius:10px; padding:1.5rem; margin:1rem 0;
+  overflow-x:auto;
+}
+pre.mermaid { font-size:0.85rem; background:transparent; }
+
+.wireframe {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:12px; padding:1.5rem; margin:1rem 0;
+}
+.wireframe h4 { color:var(--gold); margin-bottom:0.8rem; }
+.wireframe-grid {
+  display:flex; gap:12px; flex-wrap:wrap;
+}
+.wf-box {
+  border:1px dashed var(--border); border-radius:8px;
+  padding:8px 14px; font-size:0.8rem; color:var(--text-dim);
+}
+
+footer {
+  text-align:center; margin-top:4rem; padding:1.5rem;
+  color:var(--text-dim); font-size:0.8rem;
+  border-top:1px solid var(--border);
+}
+footer a { color:var(--cyan); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<div class="lang-toggle">
+  <button id="btn-th" class="active" onclick="switchLang('th')">ไทย</button>
+  <button id="btn-en" onclick="switchLang('en')">English</button>
+</div>
+
+<div class="container">
+
+<h1>
+  <span class="th">พิมพ์เขียว — </span>
+  <span class="en">Blueprint — </span>
+  <span class="glow">Aether</span>
+</h1>
+<p style="text-align:center;font-size:1.1rem;">
+  <span class="th">ผู้ช่วย AI ด้วยเสียง — </span>
+  <span class="en">Voice AI Assistant — </span>
+  <span class="badge badge-cyan">v1.0</span>
+  <span class="badge badge-magenta">BSF Phase 1</span>
+</p>
+<p style="text-align:center" class="th">
+  🎙️ พูดคุยกับ AI เหมือนมีผู้ช่วยส่วนตัว — แรงบันดาลใจจาก J.A.R.V.I.S.
+</p>
+<p style="text-align:center" class="en">
+  🎙️ Talk to AI like a personal assistant — inspired by J.A.R.V.I.S.
+</p>
+
+<!-- ════════════════════════════════════════════════
+     PART 00 — REQUIREMENTS
+     ════════════════════════════════════════════════ -->
+<h2>
+  <span class="th">📋 ส่วนที่ 00 — ข้อกำหนด</span>
+  <span class="en">📋 Part 00 — Requirements</span>
+</h2>
+
+<!-- Actors -->
+<h3>
+  <span class="th">👥 ผู้เกี่ยวข้อง (Actors)</span>
+  <span class="en">👥 Actors</span>
+</h3>
+<table>
+  <tr><th><span class="th">Actor</span><span class="en">Actor</span></th><th><span class="th">บทบาท</span><span class="en">Role</span></th><th><span class="th">เป้าหมาย</span><span class="en">Goals</span></th></tr>
+  <tr>
+    <td><strong>👤 <span class="th">ผู้ใช้</span><span class="en">User</span></strong></td>
+    <td class="th">บุคคลที่ถาม-ตอบกับ AI</td>
+    <td class="en">Person chatting with AI</td>
+    <td class="th">ถามคำถามด้วยเสียง ได้รับคำตอบด้วยเสียง</td>
+    <td class="en">Ask questions by voice, get spoken answers</td>
+  </tr>
+  <tr>
+    <td><strong>🎤 <span class="th">Speech Engine</span></strong></td>
+    <td class="th">Web Speech API — STT + TTS</td>
+    <td class="en">Web Speech API — STT + TTS</td>
+    <td class="th">แปลงเสียง↔ข้อความ</td>
+    <td class="en">Convert speech↔text</td>
+  </tr>
+  <tr>
+    <td><strong>🤖 <span class="th">LLM Provider</span></strong></td>
+    <td class="th">DeepSeek Chat API</td>
+    <td class="en">DeepSeek Chat API</td>
+    <td class="th">ประมวลผลภาษา สร้างคำตอบ</td>
+    <td class="en">Process language, generate responses</td>
+  </tr>
+</table>
+
+<!-- Constraints -->
+<h3>
+  <span class="th">🔒 ข้อจำกัด</span>
+  <span class="en">🔒 Constraints</span>
+</h3>
+<table>
+  <tr><th>ID</th><th><span class="th">ข้อจำกัด</span><span class="en">Constraint</span></th><th><span class="th">ประเภท</span><span class="en">Type</span></th></tr>
+  <tr><td>C01</td><td class="th">ต้องใช้ Chrome/Edge (รองรับ Web Speech API)</td><td class="en">Requires Chrome/Edge (Web Speech API)</td><td>Browser</td></tr>
+  <tr><td>C02</td><td class="th">HTTPS จำเป็นสำหรับ microphone (GitHub Pages)</td><td class="en">HTTPS required for mic (GitHub Pages)</td><td>Security</td></tr>
+  <tr><td>C03</td><td class="th">API key ใน localStorage (ไม่ใช่ production-grade)</td><td class="en">API key in localStorage (non-production)</td><td>Security</td></tr>
+  <tr><td>C04</td><td class="th">Responsive — desktop + mobile</td><td class="en">Responsive — desktop + mobile</td><td>Design</td></tr>
+  <tr><td>C05</td><td class="th">Theme โลกอนาคต — dark, neon, holographic</td><td class="en">Sci-Fi theme — dark, neon, holographic</td><td>Design</td></tr>
+  <tr><td>C06</td><td class="th">i18n ไทย/อังกฤษ</td><td class="en">i18n TH/EN</td><td>i18n</td></tr>
+  <tr><td>C07</td><td class="th">Zero dependencies — Pure HTML/CSS/JS</td><td class="en">Zero dependencies — Pure HTML/CSS/JS</td><td>Arch</td></tr>
+</table>
+
+<!-- Architecture Overview -->
+<h3>
+  <span class="th">🏗️ ภาพรวมสถาปัตยกรรม</span>
+  <span class="en">🏗️ Architecture Overview</span>
+</h3>
+<div class="mermaid-container">
+<pre class="mermaid">
+graph TD
+    USER["👤 User Browser"]
+    UI["🖥️ Aether UI\n(HTML/CSS/JS)"]
+    STT["🎤 Speech Recognition\n(Web Speech API)"]
+    TTS["🔊 Speech Synthesis\n(Web Speech API)"]
+    LLM["🤖 DeepSeek API"]
+    LS["💾 localStorage"]
+
+    USER -->|"speaks"| STT
+    STT -->|"transcript"| UI
+    UI -->|"prompt"| LLM
+    LLM -->|"response"| UI
+    UI -->|"text"| TTS
+    TTS -->|"audio"| USER
+    UI -->|"save/load"| LS
+</pre>
+</div>
+
+<!-- DFD Level 0 -->
+<h3>
+  <span class="th">📊 DFD ระดับ 0</span>
+  <span class="en">📊 DFD Level 0</span>
+</h3>
+<div class="mermaid-container">
+<pre class="mermaid">
+flowchart LR
+    U["User\n👤"] -->|"voice input"| A["Aether\nVoice AI"]
+    A -->|"spoken answer"| U
+    A -->|"API call"| D["DeepSeek\n🤖"]
+    D -->|"text response"| A
+    A -->|"read/write"| L[("localStorage\n💾")]
+</pre>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     PART 01 — CORE FUNCTION
+     ════════════════════════════════════════════════ -->
+<h2>
+  <span class="th">⚙️ ส่วนที่ 01 — ฟังก์ชันหลัก</span>
+  <span class="en">⚙️ Part 01 — Core Function</span>
+</h2>
+
+<!-- State Machine -->
+<h3>
+  <span class="th">🔄 State Machine — วงจรชีวิต AI Orb</span>
+  <span class="en">🔄 State Machine — AI Orb Lifecycle</span>
+</h3>
+<div class="mermaid-container">
+<pre class="mermaid">
+stateDiagram-v2
+    [*] --> idle
+    idle --> listening: user clicks mic / voice wake
+    listening --> thinking: speech captured
+    thinking --> speaking: LLM response ready
+    speaking --> idle: TTS complete
+    thinking --> error: API fail / network error
+    speaking --> error: TTS error
+    error --> idle: user dismisses
+    speaking --> listening: user interrupts (continuous mode)
+</pre>
+</div>
+
+<!-- DFD Level 1 -->
+<h3>
+  <span class="th">📊 DFD ระดับ 1 — Internal Data Flow</span>
+  <span class="en">📊 DFD Level 1 — Internal Data Flow</span>
+</h3>
+<div class="mermaid-container">
+<pre class="mermaid">
+flowchart TD
+    subgraph Browser["Browser"]
+        MIC["🎤 Microphone Input"]
+        STT["1. Speech Recognition\nWeb Speech API"]
+        CHAT["2. Chat Manager\nconversation.js"]
+        LLM_CALL["3. LLM Client\nllm.js"]
+        TTS_ENG["4. Speech Synthesis\nWeb Speech API"]
+        UI_ENG["5. UI Renderer\nui.js"]
+    end
+    DEEPSEEK["DeepSeek API\n🤖"]
+    STORAGE[("localStorage\n💾")]
+
+    MIC -->|"audio stream"| STT
+    STT -->|"transcript: string"| CHAT
+    CHAT -->|"messages[]"| LLM_CALL
+    LLM_CALL -->|"POST /chat/completions"| DEEPSEEK
+    DEEPSEEK -->|"response: stream"| LLM_CALL
+    LLM_CALL -->|"assistant message"| CHAT
+    CHAT -->|"text to speak"| TTS_ENG
+    CHAT -->|"update display"| UI_ENG
+    CHAT -->|"persist"| STORAGE
+</pre>
+</div>
+
+<!-- Sequence — Happy Path -->
+<h3>
+  <span class="th">📞 Sequence — Happy Path (ถาม-ตอบปกติ)</span>
+  <span class="en">📞 Sequence — Happy Path (Normal Q&A)</span>
+</h3>
+<div class="mermaid-container">
+<pre class="mermaid">
+sequenceDiagram
+    actor U as User
+    participant UI as Aether UI
+    participant STT as Speech Recognition
+    participant Chat as Chat Manager
+    participant LLM as DeepSeek API
+    participant TTS as Speech Synthesis
+
+    U->>UI: Click mic button
+    UI->>STT: start()
+    STT-->>UI: onresult(transcript)
+    UI->>Chat: addMessage(user, transcript)
+    Chat->>LLM: POST messages[]
+    LLM-->>Chat: stream tokens
+    Chat->>UI: updateMessage(token by token)
+    LLM-->>Chat: [DONE]
+    Chat->>TTS: speak(response)
+    TTS-->>U: audio output
+    Chat->>UI: save to localStorage
+</pre>
+</div>
+
+<!-- Sequence — Error -->
+<h3>
+  <span class="th">⚠️ Sequence — Error Handling</span>
+  <span class="en">⚠️ Sequence — Error Handling</span>
+</h3>
+<div class="mermaid-container">
+<pre class="mermaid">
+sequenceDiagram
+    actor U as User
+    participant STT as Speech Recognition
+    participant UI as Aether UI
+    participant LLM as DeepSeek API
+
+    U->>STT: speak
+    STT-->>STT: onerror('not-allowed')
+    STT->>UI: error: mic permission denied
+    UI->>U: show: "กรุณาอนุญาตไมโครโฟน"
+
+    U->>STT: speak (retry)
+    STT-->>UI: onresult(text)
+    UI->>LLM: POST messages[]
+    LLM-->>UI: HTTP 401
+    UI->>U: show: "API key ไม่ถูกต้อง"
+    UI->>U: prompt to enter key in settings
+</pre>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     PART 02 — INTERFACE UI
+     ════════════════════════════════════════════════ -->
+<h2>
+  <span class="th">🎨 ส่วนที่ 02 — อินเทอร์เฟซ</span>
+  <span class="en">🎨 Part 02 — Interface UI</span>
+</h2>
+
+<!-- Navigation Map -->
+<h3>
+  <span class="th">🗺️ Navigation Map</span>
+  <span class="en">🗺️ Navigation Map</span>
+</h3>
+<div class="mermaid-container">
+<pre class="mermaid">
+graph TD
+    APP["App Shell\n(Single Page)"]
+    ORB["🔮 AI Orb\n(idle/listening/thinking/speaking)"]
+    CHAT_VIEW["💬 Chat View\n(conversation bubbles)"]
+    CONTROLS["🎛️ Control Bar\n(mic, settings, clear)"]
+    SETTINGS["⚙️ Settings Panel\n(lang, voice, API key)"]
+
+    APP --> ORB
+    APP --> CHAT_VIEW
+    APP --> CONTROLS
+    CONTROLS --> SETTINGS
+</pre>
+</div>
+
+<!-- Orb States -->
+<h3>
+  <span class="th">🔮 Orb States — Visual Language</span>
+  <span class="en">🔮 Orb States — Visual Language</span>
+</h3>
+<table>
+  <tr><th><span class="th">สถานะ</span><span class="en">State</span></th><th><span class="th">ลักษณะ</span><span class="en">Appearance</span></th><th><span class="th">สี</span><span class="en">Color</span></th><th><span class="th">Animation</span></th></tr>
+  <tr>
+    <td><span class="badge badge-cyan">idle</span></td>
+    <td class="th">พร้อมฟัง</td><td class="en">Ready</td>
+    <td style="color:var(--cyan)">Cyan</td>
+    <td class="th">เต้นช้า, particles โคจร</td><td class="en">Slow pulse, orbiting particles</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-green">listening</span></td>
+    <td class="th">กำลังฟัง</td><td class="en">Listening</td>
+    <td style="color:var(--green)">White/Green</td>
+    <td class="th">ขยายใหญ่, เต้นตามเสียง</td><td class="en">Expands, audio-reactive</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-magenta">thinking</span></td>
+    <td class="th">AI กำลังคิด</td><td class="en">Thinking</td>
+    <td style="color:var(--magenta)">Magenta</td>
+    <td class="th">หมุนเร็ว, pulse แรง</td><td class="en">Fast spin, intense pulse</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-cyan">speaking</span></td>
+    <td class="th">กำลังพูด</td><td class="en">Speaking</td>
+    <td style="color:var(--cyan)">Cyan rings</td>
+    <td class="th">คลื่นเสียงกระจายเป็นวง</td><td class="en">Expanding rings / waveforms</td>
+  </tr>
+  <tr>
+    <td style="color:var(--red)">error</td>
+    <td class="th">ผิดพลาด</td><td class="en">Error</td>
+    <td style="color:var(--red)">Red</td>
+    <td class="th">กระพริบ, แสดงข้อความ error</td><td class="en">Flicker, error message</td>
+  </tr>
+</table>
+
+<!-- Wireframes -->
+<h3>
+  <span class="th">📱 Wireframes — หน้าจอหลัก</span>
+  <span class="en">📱 Wireframes — Main Screens</span>
+</h3>
+
+<div class="wireframe">
+  <h4>
+    <span class="th">🖥️ Desktop Layout</span>
+    <span class="en">🖥️ Desktop Layout</span>
+  </h4>
+  <div class="wireframe-grid">
+    <div class="wf-box" style="flex:1;text-align:center;min-height:120px">
+      <span class="th">🔮 AI Orb (กลางจอ)</span>
+      <span class="en">🔮 AI Orb (center)</span>
+      <br><small class="th">— แสดงสถานะ, อนิเมชัน</small>
+      <small class="en">— shows state, animation</small>
+    </div>
+    <div class="wf-box" style="flex:2;text-align:center;min-height:120px">
+      <span class="th">💬 Chat Bubbles (ขวา)</span>
+      <span class="en">💬 Chat Bubbles (right)</span>
+      <br><small class="th">— user: ขวา, AI: ซ้าย</small>
+      <small class="en">— user: right, AI: left</small>
+    </div>
+    <div class="wf-box" style="flex:1;text-align:center;min-height:120px">
+      <span class="th">🎛️ Controls (ล่าง)</span>
+      <span class="en">🎛️ Controls (bottom)</span>
+      <br><small class="th">— ปุ่ม mic, settings, clear</small>
+      <small class="en">— mic, settings, clear buttons</small>
+    </div>
+  </div>
+</div>
+
+<div class="wireframe">
+  <h4>
+    <span class="th">📱 Mobile Layout</span>
+    <span class="en">📱 Mobile Layout</span>
+  </h4>
+  <div class="wireframe-grid" style="flex-direction:column">
+    <div class="wf-box" style="text-align:center;min-height:80px">
+      <span class="th">🔮 Orb (เล็กกว่า, ด้านบน)</span>
+      <span class="en">🔮 Orb (smaller, top)</span>
+    </div>
+    <div class="wf-box" style="text-align:center;min-height:200px">
+      <span class="th">💬 Chat View (เต็มจอ)</span>
+      <span class="en">💬 Chat View (full width)</span>
+    </div>
+    <div class="wf-box" style="text-align:center;min-height:60px">
+      <span class="th">🎛️ Control Bar (fixed bottom)</span>
+      <span class="en">🎛️ Control Bar (fixed bottom)</span>
+    </div>
+  </div>
+</div>
+
+<!-- Color Palette -->
+<h3>
+  <span class="th">🎨 Color Palette — ธีมโลกอนาคต</span>
+  <span class="en">🎨 Color Palette — Futuristic Theme</span>
+</h3>
+<table>
+  <tr><th><span class="th">ชื่อ</span><span class="en">Name</span></th><th><span class="th">ค่า</span><span class="en">Value</span></th><th><span class="th">การใช้งาน</span><span class="en">Usage</span></th></tr>
+  <tr><td style="background:#0a0a1a;color:#fff">Deep Void</td><td><code>#0a0a1a</code></td><td class="th">พื้นหลังหลัก</td><td class="en">Main background</td></tr>
+  <tr><td style="background:#141432;color:#fff">Surface</td><td><code>#141432</code></td><td class="th">การ์ด, panels</td><td class="en">Cards, panels</td></tr>
+  <tr><td style="background:#00f0ff;color:#000">Neon Cyan</td><td><code>#00f0ff</code></td><td class="th">สีหลัก, orb idle, border</td><td class="en">Primary, orb idle, borders</td></tr>
+  <tr><td style="background:#ff00ff;color:#fff">Neon Magenta</td><td><code>#ff00ff</code></td><td class="th">สีรอง, orb thinking</td><td class="en">Secondary, orb thinking</td></tr>
+  <tr><td style="background:#00ff88;color:#000">Neon Green</td><td><code>#00ff88</code></td><td class="th">สถานะ success, listening</td><td class="en">Success, listening state</td></tr>
+  <tr><td style="background:#ff4466;color:#fff">Neon Red</td><td><code>#ff4466</code></td><td class="th">Error state</td><td class="en">Error state</td></tr>
+  <tr><td style="background:#ffd700;color:#000">Gold</td><td><code>#ffd700</code></td><td class="th">Highlight, accent</td><td class="en">Highlight, accent</td></tr>
+</table>
+
+</div><!-- .container -->
+
+<footer>
+  <span class="th">สร้างด้วย BSF Framework v4.0 — </span>
+  <span class="en">Built with BSF Framework v4.0 — </span>
+  <a href="https://github.com/tkws-dev" target="_blank">tkws-dev</a>
+  <br>
+  <span class="th">พิมพ์เขียวสำหรับ:</span>
+  <span class="en">Blueprint for:</span>
+  <strong>Aether — Voice AI Assistant</strong>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+
+function switchLang(lang) {
+  document.documentElement.setAttribute('data-lang', lang);
+  document.getElementById('btn-th').classList.toggle('active', lang === 'th');
+  document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+}
+</script>
+</body>
+</html>

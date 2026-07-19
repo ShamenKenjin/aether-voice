@@ -1,0 +1,153 @@
+# Aether — Voice AI Assistant
+# BSF Phase 1 — Requirements Specification
+# companions/requirements.yaml
+
+project:
+  name: Aether
+  description: "Jarvis-style voice AI assistant — พูดโต้ตอบกับ AI ด้วยเสียง เหมือนผู้ช่วยส่วนตัวในหนัง Iron Man"
+  type: static-web-app
+  stack:
+    frontend: [HTML5, CSS3, JavaScript (ES6)]
+    apis: [Web Speech API (STT), Web Speech Synthesis API (TTS), DeepSeek Chat API (LLM)]
+    storage: localStorage (settings + conversation history)
+  path: C:\Users\Admin\Documents\GitHub\aether-voice
+  repo: https://github.com/ShamenKenjin/aether-voice
+  deploy: GitHub Pages
+
+existing_architecture:
+  type: new-project
+  no_existing_code: true
+  reference_projects:
+    - KnightVerse (chess game, same stack — HTML/CSS/JS, i18n TH/EN, localStorage, GHPages)
+
+actors:
+  - id: user
+    name: "ผู้ใช้ | User"
+    description: "บุคคลทั่วไปที่พูดคุยกับ AI assistant"
+    goals:
+      - "เริ่มบทสนทนาด้วยเสียง"
+      - "ถามคำถามและได้รับคำตอบด้วยเสียง"
+      - "ดูประวัติการสนทนา"
+      - "ปรับแต่งการตั้งค่า (ธีม, เสียง, ภาษา)"
+
+  - id: speech-engine
+    name: "Speech Engine | เครื่องมือเสียง"
+    description: "Web Speech API — แปลงเสียงเป็นข้อความ (STT) และข้อความเป็นเสียง (TTS)"
+    goals:
+      - "รับเสียงจากไมโครโฟน"
+      - "แปลงเป็นข้อความที่ถูกต้อง"
+      - "สังเคราะห์เสียงจากข้อความที่ AI ตอบ"
+
+  - id: llm-provider
+    name: "LLM Provider | ผู้ให้บริการ AI"
+    description: "DeepSeek Chat API — ประมวลผลภาษาและสร้างคำตอบ"
+    goals:
+      - "รับ prompt และ context"
+      - "สร้างคำตอบที่ฉลาดและเป็นธรรมชาติ"
+      - "รักษาบริบทการสนทนา"
+
+constraints:
+  - id: "C01"
+    text: "ต้องทำงานบน Chrome/Edge (Web Speech API support)"
+    type: browser
+  - id: "C02"
+    text: "HTTPS required สำหรับ microphone access (GitHub Pages ให้ HTTPS ฟรี)"
+    type: security
+  - id: "C03"
+    text: "DeepSeek API key ต้องเก็บฝั่ง client (ใช้ localStorage, ไม่ใช่ production-grade)"
+    type: security
+  - id: "C04"
+    text: "UI ต้อง responsive — ใช้ได้ทั้ง desktop และ mobile"
+    type: design
+  - id: "C05"
+    text: "Theme: โลกอนาคต (Sci-Fi / Futuristic) — dark, neon, holographic"
+    type: design
+  - id: "C06"
+    text: "รองรับภาษาไทยและอังกฤษ (i18n TH/EN)"
+    type: i18n
+  - id: "C07"
+    text: "Zero external dependencies — Pure HTML/CSS/JS"
+    type: architecture
+  - id: "C08"
+    text: "localStorage สำหรับ settings และ conversation history"
+    type: storage
+
+modules:
+  - name: speech-input
+    description: "Speech-to-Text — รับเสียงพูดผ่านไมค์ แปลงเป็นข้อความ"
+    features:
+      - "Web Speech API SpeechRecognition"
+      - "Push-to-talk (hold button) หรือ continuous listening"
+      - "แสดง waveform ขณะพูด"
+      - "Error handling: no mic, permission denied"
+
+  - name: speech-output
+    description: "Text-to-Speech — แปลงข้อความคำตอบเป็นเสียงพูด"
+    features:
+      - "Web Speech API SpeechSynthesis"
+      - "เลือกเสียง (male/female, TH/EN)"
+      - "ปรับความเร็ว (rate) และระดับเสียง (pitch)"
+      - "ปุ่มหยุดพูด / replay"
+
+  - name: ai-chat
+    description: "LLM Integration — ส่งข้อความไป DeepSeek API รับคำตอบ"
+    features:
+      - "System prompt: กำหนดให้ AI เป็นผู้ช่วยชื่อ Aether"
+      - "Maintain conversation context (ส่ง history ทั้งหมด)"
+      - "Streaming response (พิมพ์ทีละตัวอักษร)"
+      - "Error handling: network error, API key invalid, rate limit"
+
+  - name: conversation
+    description: "Conversation Management — บันทึกและแสดงประวัติการสนทนา"
+    features:
+      - "แสดงประวัติแบบ chat bubble (user / AI)"
+      - "บันทึกอัตโนมัติลง localStorage"
+      - "New Conversation / Clear History"
+      - "Export conversation as text"
+
+  - name: ui-theme
+    description: "Futuristic UI Theme — โลกอนาคต"
+    features:
+      - "Dark background พร้อม grid/particle effect"
+      - "Neon glow สี cyan (#00f0ff) และ magenta (#ff00ff)"
+      - "Glassmorphism panels (blur + transparency)"
+      - "Pulsing orb / hologram แสดงสถานะ AI (idle/listening/speaking/thinking)"
+      - "Smooth animations and transitions"
+      - "Responsive design (mobile-first)"
+
+  - name: settings
+    description: "Settings — จัดการการตั้งค่า"
+    features:
+      - "เลือกภาษา (TH/EN)"
+      - "เลือกเสียง TTS"
+      - "ปรับความเร็วเสียง"
+      - "ตั้งค่า API key"
+      - "เปิด/ปิด streaming response"
+
+routes:
+  # Single-page app — no server routes
+  - path: "/"
+    component: "AppShell"
+    description: "Main application container — orb + chat + controls"
+
+ui_states:
+  - id: idle
+    desc: "AI พร้อมฟัง — orb เต้นเป็นจังหวะช้าๆ, สี cyan"
+  - id: listening
+    desc: "กำลังฟัง — orb ขยายใหญ่, เต้นตามเสียง, สีขาวสว่าง"
+  - id: thinking
+    desc: "AI กำลังคิด — orb หมุนเร็ว, สี magenta pulse"
+  - id: speaking
+    desc: "AI กำลังพูด — orb เต้นตามเสียงพูด, waveform rings"
+  - id: error
+    desc: "เกิดข้อผิดพลาด — orb สีแดง, แสดง error message"
+
+tests:
+  - type: manual
+    items:
+      - "ทดสอบ STT: พูดภาษาไทยและอังกฤษ"
+      - "ทดสอบ TTS: เสียงพูดชัดเจน"
+      - "ทดสอบ AI response: คำตอบตรงประเด็น"
+      - "ทดสอบบน Chrome + Edge"
+      - "ทดสอบบน mobile (responsive)"
+      - "ทดสอบ error states: no mic, no API key, network fail"

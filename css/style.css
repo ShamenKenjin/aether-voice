@@ -1,0 +1,301 @@
+/* Aether — style.css */
+/* Futuristic sci-fi theme: dark, neon glow, glassmorphism */
+
+/* ── Base ──────────────────────────────────────── */
+*,*::before,*::after { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --aether-bg: #0a0a1a;
+  --aether-surface: #141432;
+  --aether-border: rgba(0,240,255,0.15);
+  --aether-text: #e0e0f0;
+  --aether-textDim: #8899bb;
+  --aether-cyan: #00f0ff;
+  --aether-magenta: #ff00ff;
+  --aether-green: #00ff88;
+  --aether-red: #ff4466;
+  --aether-gold: #ffd700;
+  --aether-glowCyan: 0 0 20px rgba(0,240,255,0.4);
+  --aether-glowMagenta: 0 0 20px rgba(255,0,255,0.4);
+}
+
+html, body {
+  height:100%; overflow:hidden;
+  background:var(--aether-bg); color:var(--aether-text);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* Animated grid background */
+body::before {
+  content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    linear-gradient(rgba(0,240,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,240,255,0.04) 1px, transparent 1px);
+  background-size: 50px 50px;
+  animation: gridScroll 15s linear infinite;
+}
+@keyframes gridScroll { to { background-position: 50px 50px; } }
+
+/* ── App Shell ─────────────────────────────────── */
+#app {
+  position:relative; z-index:1;
+  display:flex; flex-direction:column;
+  height:100vh; height:100dvh;
+  max-width:900px; margin:0 auto;
+}
+
+/* ── Orb Zone ──────────────────────────────────── */
+#orb-zone {
+  position:relative; flex-shrink:0;
+  height:220px; display:flex; align-items:center; justify-content:center;
+}
+#orb-canvas { width:200px; height:200px; }
+.orb-label {
+  position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+  font-size:0.85rem; color:var(--aether-textDim);
+  letter-spacing:1px; text-transform:uppercase;
+  transition:color 0.5s, text-shadow 0.5s;
+}
+.orb-label.state-idle { color:var(--aether-cyan); }
+.orb-label.state-listening { color:#fff; text-shadow:0 0 12px rgba(255,255,255,0.6); }
+.orb-label.state-thinking { color:var(--aether-magenta); text-shadow:var(--aether-glowMagenta); }
+.orb-label.state-speaking { color:var(--aether-cyan); text-shadow:var(--aether-glowCyan); }
+.orb-label.state-error { color:var(--aether-red); }
+
+/* ── Chat Area ─────────────────────────────────── */
+#chat-area {
+  flex:1; overflow-y:auto; padding:0 1rem 1rem;
+  scroll-behavior:smooth;
+  /* Custom scrollbar */
+  scrollbar-width:thin; scrollbar-color:var(--aether-border) transparent;
+}
+#chat-area::-webkit-scrollbar { width:4px; }
+#chat-area::-webkit-scrollbar-thumb { background:var(--aether-border); border-radius:2px; }
+
+#chat-messages { display:flex; flex-direction:column; gap:12px; min-height:100%; padding:1rem 0; }
+
+.chat-empty {
+  display:flex; align-items:center; justify-content:center;
+  height:100%; color:var(--aether-textDim);
+  font-size:0.9rem; text-align:center; padding:2rem;
+  opacity:0.7;
+}
+
+/* Chat Bubbles */
+.chat-msg {
+  max-width:85%; padding:10px 16px; border-radius:16px;
+  font-size:0.92rem; line-height:1.55;
+  animation: msgIn 0.3s ease-out;
+  word-break:break-word;
+}
+@keyframes msgIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+.chat-msg.user {
+  align-self:flex-end;
+  background:rgba(0,240,255,0.1); border:1px solid rgba(0,240,255,0.2);
+  color:var(--aether-text);
+  border-bottom-right-radius:4px;
+}
+.chat-msg.assistant {
+  align-self:flex-start;
+  background:rgba(255,0,255,0.07); border:1px solid rgba(255,0,255,0.15);
+  color:var(--aether-text);
+  border-bottom-left-radius:4px;
+}
+.chat-msg .msg-role {
+  font-size:0.7rem; text-transform:uppercase; letter-spacing:1px;
+  margin-bottom:4px; opacity:0.7;
+}
+.chat-msg.user .msg-role { color:var(--aether-cyan); }
+.chat-msg.assistant .msg-role { color:var(--aether-magenta); }
+.chat-msg.streaming .msg-content::after {
+  content:'▍'; animation:blink 0.8s infinite; color:var(--aether-cyan);
+}
+@keyframes blink { 50% { opacity:0; } }
+.chat-msg.error { border-color:var(--aether-red); }
+
+/* ── Control Bar ───────────────────────────────── */
+#control-bar {
+  flex-shrink:0; display:flex; align-items:center; justify-content:center;
+  gap:24px; padding:14px 1rem 20px;
+  background:linear-gradient(transparent, var(--aether-bg) 40%);
+}
+.ctrl-btn {
+  background:none; border:1px solid var(--aether-border);
+  color:var(--aether-textDim); width:42px; height:42px;
+  border-radius:50%; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:all 0.25s;
+}
+.ctrl-btn:hover { border-color:var(--aether-cyan); color:var(--aether-cyan); box-shadow:var(--aether-glowCyan); }
+
+/* Mic Button */
+.mic-btn {
+  position:relative; background:var(--aether-surface);
+  border:2px solid var(--aether-cyan); color:var(--aether-cyan);
+  width:64px; height:64px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:all 0.3s;
+  box-shadow:var(--aether-glowCyan);
+}
+.mic-btn:hover { transform:scale(1.05); }
+.mic-btn:active { transform:scale(0.95); }
+
+.mic-btn.listening {
+  border-color:#fff; color:#fff;
+  box-shadow:0 0 30px rgba(255,255,255,0.5), 0 0 60px rgba(0,240,255,0.3);
+  animation:micPulse 0.8s ease-in-out infinite;
+}
+@keyframes micPulse {
+  0%,100% { box-shadow:0 0 20px rgba(255,255,255,0.4), 0 0 40px rgba(0,240,255,0.2); }
+  50% { box-shadow:0 0 35px rgba(255,255,255,0.7), 0 0 70px rgba(0,240,255,0.4); }
+}
+
+.mic-btn.error { border-color:var(--aether-red); color:var(--aether-red); box-shadow:0 0 20px rgba(255,68,102,0.4); }
+
+.mic-ring {
+  position:absolute; inset:-6px; border-radius:50%;
+  border:1px solid transparent; opacity:0;
+  transition:all 0.4s;
+}
+.mic-btn.listening .mic-ring {
+  border-color:rgba(0,240,255,0.3);
+  animation:ringExpand 1.5s ease-out infinite;
+}
+@keyframes ringExpand {
+  0% { inset:-6px; opacity:0.6; }
+  100% { inset:-22px; opacity:0; }
+}
+
+/* ── Glass Panel (Settings, Export) ────────────── */
+.overlay {
+  position:fixed; inset:0; z-index:100;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,0.7); backdrop-filter:blur(4px);
+  animation:fadeIn 0.2s ease;
+}
+.overlay.hidden { display:none; }
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+
+.glass-panel {
+  background:rgba(20,20,50,0.95); border:1px solid var(--aether-border);
+  border-radius:20px; padding:1.8rem;
+  width:90%; max-width:420px; max-height:85vh;
+  display:flex; flex-direction:column;
+  box-shadow:0 20px 60px rgba(0,0,0,0.5), var(--aether-glowCyan);
+  animation:slideUp 0.3s ease;
+}
+@keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+
+.settings-title { color:var(--aether-cyan); font-size:1.3rem; margin-bottom:1rem; text-align:center; }
+
+.settings-scroll { flex:1; overflow-y:auto; padding-right:4px; }
+
+.setting-group { margin-bottom:1rem; }
+.setting-label {
+  display:block; font-size:0.8rem; color:var(--aether-textDim);
+  text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;
+}
+.setting-group select,
+.setting-group input[type="text"],
+.setting-group input[type="password"],
+.setting-group textarea {
+  width:100%; padding:8px 12px;
+  background:rgba(0,0,0,0.4); border:1px solid var(--aether-border);
+  border-radius:8px; color:var(--aether-text); font-size:0.9rem;
+  font-family:inherit; outline:none; transition:border-color 0.2s;
+}
+.setting-group select:focus,
+.setting-group input:focus,
+.setting-group textarea:focus { border-color:var(--aether-cyan); }
+
+.setting-group textarea { resize:vertical; min-height:60px; }
+
+.setting-group input[type="range"] {
+  width:calc(100% - 40px); vertical-align:middle; accent-color:var(--aether-cyan);
+}
+.setting-group input[type="range"] + span {
+  display:inline-block; width:36px; text-align:right;
+  font-size:0.8rem; color:var(--aether-cyan); vertical-align:middle;
+}
+
+.setting-hint { display:block; font-size:0.7rem; color:var(--aether-textDim); margin-top:4px; }
+
+.toggle-group { display:flex; justify-content:space-between; align-items:center; }
+.toggle-row { display:flex; align-items:center; gap:10px; }
+.toggle-text { font-size:0.85rem; color:var(--aether-textDim); }
+.toggle {
+  width:44px; height:24px; border-radius:12px;
+  background:rgba(255,255,255,0.1); cursor:pointer;
+  position:relative; transition:background 0.3s;
+}
+.toggle::after {
+  content:''; position:absolute; top:3px; left:3px;
+  width:18px; height:18px; border-radius:50%;
+  background:var(--aether-textDim); transition:all 0.3s;
+}
+.toggle.on { background:var(--aether-cyan); }
+.toggle.on::after { left:23px; background:#fff; }
+
+.settings-actions {
+  display:flex; justify-content:flex-end; gap:10px;
+  margin-top:1rem; padding-top:0.8rem; border-top:1px solid var(--aether-border);
+}
+
+/* Buttons */
+.btn {
+  padding:8px 20px; border-radius:10px; font-size:0.9rem;
+  cursor:pointer; transition:all 0.2s; border:none;
+  font-family:inherit;
+}
+.btn-accent {
+  background:var(--aether-cyan); color:var(--aether-bg);
+  box-shadow:var(--aether-glowCyan);
+}
+.btn-accent:hover { transform:translateY(-1px); box-shadow:0 0 30px rgba(0,240,255,0.6); }
+.btn-ghost { background:transparent; color:var(--aether-textDim); }
+.btn-ghost:hover { color:var(--aether-text); }
+
+/* ── Export Panel ──────────────────────────────── */
+.export-panel { max-width:500px; }
+.export-panel h3 { color:var(--aether-gold); margin-bottom:0.8rem; }
+.export-panel textarea {
+  width:100%; background:rgba(0,0,0,0.4); border:1px solid var(--aether-border);
+  border-radius:8px; color:var(--aether-text); font-size:0.85rem;
+  font-family:monospace; padding:12px; resize:none;
+}
+
+/* ── Interrupt Toast ───────────────────────────── */
+.interim-toast {
+  position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  background:rgba(20,20,50,0.95); border:1px solid var(--aether-cyan);
+  border-radius:14px; padding:16px 24px; z-index:50;
+  font-size:1.1rem; color:#fff; text-align:center;
+  max-width:85%; box-shadow:0 0 40px rgba(0,240,255,0.3);
+  animation:toastIn 0.15s ease;
+}
+@keyframes toastIn { from { opacity:0; transform:translate(-50%,-50%) scale(0.9); } to { opacity:1; transform:translate(-50%,-50%) scale(1); } }
+
+/* ── Error Toast ───────────────────────────────── */
+.error-toast {
+  position:fixed; bottom:100px; left:50%; transform:translateX(-50%);
+  background:rgba(255,68,102,0.15); border:1px solid var(--aether-red);
+  border-radius:10px; padding:10px 20px; z-index:50;
+  font-size:0.85rem; color:var(--aether-red);
+  animation:toastIn 0.2s ease;
+  max-width:85%; text-align:center;
+}
+
+/* ── Responsive ────────────────────────────────── */
+@media (max-width:600px) {
+  #orb-zone { height:170px; }
+  #orb-canvas { width:150px; height:150px; }
+  .glass-panel { width:95%; padding:1.2rem; border-radius:16px; }
+  .mic-btn { width:56px; height:56px; }
+  .chat-msg { max-width:92%; font-size:0.88rem; }
+}
+@media (min-width:900px) {
+  #orb-zone { height:260px; }
+  #orb-canvas { width:240px; height:240px; }
+}

@@ -1,0 +1,206 @@
+# Aether — Voice AI Assistant
+# BSF Phase 1 — Data Structures (JS Objects, not DB tables)
+# companions/schema.prisma
+
+# ── Conversation State ────────────────────────────
+
+model ConversationState:
+  description: "State machine states for the AI orb"
+  type: enum_string
+  values:
+    - idle        # Ready, waiting for input
+    - listening   # Recording user speech
+    - thinking    # Sending to LLM, waiting for response
+    - speaking    # Playing TTS audio
+    - error       # Error state
+  defaults:
+    initial_state: idle
+
+# ── Message ───────────────────────────────────────
+
+model Message:
+  description: "A single message in the conversation"
+  type: javascript_object
+  fields:
+    - name: id
+      type: string
+      description: "UUID v4"
+      required: true
+    - name: role
+      type: enum_string
+      values: [user, assistant, system]
+      required: true
+    - name: content
+      type: string
+      description: "Message text content"
+      required: true
+    - name: timestamp
+      type: number
+      description: "Unix timestamp in milliseconds"
+      required: true
+    - name: status
+      type: enum_string
+      values: [complete, streaming, error]
+      default: complete
+      description: "Streaming status for assistant messages"
+    - name: audioUrl
+      type: string
+      required: false
+      description: "Blob URL for TTS audio (optional cache)"
+
+# ── Conversation ──────────────────────────────────
+
+model Conversation:
+  description: "Full conversation history"
+  type: javascript_object
+  fields:
+    - name: id
+      type: string
+      description: "UUID v4"
+      required: true
+    - name: title
+      type: string
+      description: "Auto-generated title from first message"
+      required: false
+    - name: messages
+      type: array
+      items: Message
+      required: true
+      description: "Ordered list of messages"
+    - name: created_at
+      type: number
+      description: "Unix timestamp"
+      required: true
+    - name: updated_at
+      type: number
+      description: "Unix timestamp of last message"
+
+# ── Settings ──────────────────────────────────────
+
+model Settings:
+  description: "User preferences — persisted in localStorage"
+  type: javascript_object
+  fields:
+    - name: lang
+      type: enum_string
+      values: [th, en]
+      default: th
+    - name: voiceName
+      type: string
+      default: ""
+      description: "Preferred SpeechSynthesis voice name"
+    - name: voiceRate
+      type: number
+      default: 1.0
+      description: "Speech rate (0.1 - 2.0)"
+    - name: voicePitch
+      type: number
+      default: 1.0
+    - name: apiKey
+      type: string
+      default: ""
+      description: "DeepSeek API key"
+    - name: streamingEnabled
+      type: boolean
+      default: true
+    - name: continuousListening
+      type: boolean
+      default: false
+      description: "Auto-restart listening after TTS finishes"
+    - name: systemPrompt
+      type: string
+      default: "You are Aether, a helpful AI assistant..."
+    - name: theme
+      type: enum_string
+      values: [cyber, midnight, emerald]
+      default: cyber
+
+# ── Speech Recognition State ──────────────────────
+
+model SpeechState:
+  description: "State of the speech recognition engine"
+  type: javascript_object
+  fields:
+    - name: isSupported
+      type: boolean
+      description: "Browser supports SpeechRecognition"
+    - name: isListening
+      type: boolean
+    - name: isMicGranted
+      type: boolean
+    - name: interimText
+      type: string
+      description: "Real-time transcription while speaking"
+    - name: finalText
+      type: string
+      description: "Finalized transcription"
+    - name: confidence
+      type: number
+      description: "Speech recognition confidence (0-1)"
+
+# ── TTS State ─────────────────────────────────────
+
+model TTSState:
+  description: "State of text-to-speech synthesis"
+  type: javascript_object
+  fields:
+    - name: isSupported
+      type: boolean
+      description: "Browser supports SpeechSynthesis"
+    - name: isSpeaking
+      type: boolean
+    - name: voices
+      type: array
+      items: SpeechSynthesisVoice
+      description: "Available voices from browser"
+    - name: currentUtterance
+      type: SpeechSynthesisUtterance
+      required: false
+
+# ── LLM Config ────────────────────────────────────
+
+model LLMConfig:
+  description: "LLM API configuration"
+  type: javascript_object
+  fields:
+    - name: provider
+      type: string
+      default: "deepseek"
+    - name: endpoint
+      type: string
+      default: "https://api.deepseek.com/v1/chat/completions"
+    - name: model
+      type: string
+      default: "deepseek-chat"
+    - name: maxTokens
+      type: number
+      default: 2048
+    - name: temperature
+      type: number
+      default: 0.7
+    - name: topP
+      type: number
+      default: 0.9
+
+# ── Orb Animation State ───────────────────────────
+
+model OrbState:
+  description: "Visual state of the central holographic orb"
+  type: javascript_object
+  fields:
+    - name: state
+      type: ConversationState
+      description: "Current orb state"
+    - name: pulseIntensity
+      type: number
+      description: "CSS animation intensity (0-1)"
+    - name: color
+      type: string
+      description: "CSS color for neon glow"
+    - name: particles
+      type: number
+      description: "Number of orbiting particles"
+      default: 12
+    - name: rotation
+      type: number
+      description: "Current rotation angle in degrees"

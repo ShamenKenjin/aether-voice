@@ -6,8 +6,10 @@
 - **Stack**: Pure HTML/CSS/JS (static, zero dependencies)
 - **APIs**: Web Speech API (STT + TTS), DeepSeek Chat API (LLM)
 - **Deploy**: GitHub Pages (HTTPS required for mic)
-- **Repo**: https://github.com/ShamenKenjin/aether-voice (to be created)
+- **Repo**: https://github.com/ShamenKenjin/aether-voice
+- **Live**: https://shamenkenjin.github.io/aether-voice/
 - **Started**: 2026-07-19
+- **Status**: ✅ Complete (Phase 1-5)
 
 ---
 
@@ -42,11 +44,17 @@
 - [x] Mobile responsive layout (touch events, flexible sizing)
 - [x] Conversation export (text + copy to clipboard)
 
-### Phase 5 — Deploy
-- [ ] Git init + commit
-- [ ] Create GitHub repo
-- [ ] Push to GitHub
-- [ ] Enable GitHub Pages
+### Phase 5 — Deploy ✅
+- [x] Git init + commit (8917f21)
+- [x] Create GitHub repo (`ShamenKenjin/aether-voice`)
+- [x] Push to GitHub (master)
+- [x] Enable GitHub Pages → https://shamenkenjin.github.io/aether-voice/
+
+---
+
+## Live
+
+🔮 **https://shamenkenjin.github.io/aether-voice/**
 
 ---
 

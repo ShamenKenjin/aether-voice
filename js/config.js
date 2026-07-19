@@ -128,6 +128,8 @@ Aether.DEFAULTS = {
   voiceRate: 1.0,
   voicePitch: 1.0,
   apiKey: '',
+  ttsProvider: 'proxy',  // 'browser' | 'proxy' (Google TTS via Pipeline-Studio server)
+  ttsProxyUrl: 'http://localhost:4001/api/tts',
   systemPrompt: 'You are Aether, a brilliant and friendly AI assistant. You speak naturally and concisely. You answer in the same language the user speaks. Keep responses under 3 paragraphs unless asked for detail.',
   streamingEnabled: true,
   continuousListening: false

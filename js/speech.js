@@ -101,36 +101,29 @@ Aether.SpeechInput.prototype.stop = function() {
 
 Aether.SpeechOutput = function() {
   this.synth = null;
-  this.isSupported = false;
+  this.isSupported = true; // always true — proxy mode needs no browser API
   this.isSpeaking = false;
   this.voices = [];
-  this.pendingQueue = [];  // sentence queue
+  this.pendingQueue = [];
+  this.currentAudio = null; // Audio element for proxy mode
   this.onStart = null;
   this.onEnd = null;
   this._init();
 };
 
 Aether.SpeechOutput.prototype._init = function() {
-  if (!window.speechSynthesis) {
-    this.isSupported = false;
-    return;
-  }
-  this.synth = window.speechSynthesis;
-  this.isSupported = true;
-
-  var self = this;
-  this._loadVoices();
-  if (this.synth.onvoiceschanged !== undefined) {
-    this.synth.onvoiceschanged = function() { self._loadVoices(); };
-  }
-
-  // Chrome bug: speechSynthesis pauses after ~15s of inactivity.
-  // Keep-alive with periodic resume.
-  setInterval(function() {
-    if (self.isSpeaking && self.synth && self.synth.paused) {
-      self.synth.resume();
+  if (window.speechSynthesis) {
+    this.synth = window.speechSynthesis;
+    var self = this;
+    this._loadVoices();
+    if (this.synth.onvoiceschanged !== undefined) {
+      this.synth.onvoiceschanged = function() { self._loadVoices(); };
     }
-  }, 5000);
+    // Chrome keep-alive
+    setInterval(function() {
+      if (self.isSpeaking && self.synth && self.synth.paused) self.synth.resume();
+    }, 5000);
+  }
 };
 
 Aether.SpeechOutput.prototype._loadVoices = function() {
@@ -148,17 +141,12 @@ Aether.SpeechOutput.prototype._pickBestVoice = function() {
   var targetLang = Aether.SETTINGS.lang === 'th' ? 'th' : 'en';
   var targetFull = targetLang === 'th' ? 'th-TH' : 'en-US';
 
-  // Score each voice
   var scored = voices.map(function(v) {
     var score = 0;
     var name = (v.name || '').toLowerCase();
     var lang = (v.lang || '').toLowerCase();
-
-    // Exact language match
     if (lang === targetFull) score += 100;
     else if (lang.indexOf(targetLang) === 0) score += 60;
-
-    // Prefer neural/cloud voices (natural sounding)
     if (name.indexOf('neural') >= 0) score += 50;
     if (name.indexOf('google') >= 0) score += 45;
     if (name.indexOf('microsoft') >= 0) score += 40;
@@ -166,18 +154,10 @@ Aether.SpeechOutput.prototype._pickBestVoice = function() {
     if (name.indexOf('premium') >= 0) score += 35;
     if (name.indexOf('enhanced') >= 0) score += 30;
     if (name.indexOf('wavenet') >= 0) score += 30;
-
-    // Prefer female voices (usually clearer for assistants)
     if (name.indexOf('female') >= 0 || name.indexOf('woman') >= 0) score += 5;
-
-    // Penalize very robotic voices
     if (name.indexOf('default') >= 0) score -= 20;
-    if (name.indexOf('basic') >= 0) score -= 20;
-
     return { voice: v, score: score };
   });
-
-  // Sort by score descending
   scored.sort(function(a, b) { return b.score - a.score; });
   return scored.length > 0 ? scored[0].voice : null;
 };
@@ -186,20 +166,13 @@ Aether.SpeechOutput.prototype._pickBestVoice = function() {
 
 Aether.SpeechOutput.prototype._splitSentences = function(text) {
   if (!text) return [];
-
-  // Normalize: ensure space after punctuation
   text = text.replace(/([.?!。！？])([^\s\d])/g, '$1 $2');
-  // Thai ending particles — split after them
   text = text.replace(/(ค่ะ|ครับ|นะคะ|นะครับ|จ้ะ|จ้า|เลยค่ะ|เลยครับ)\s+/g, '$1\n');
-
-  // Split on sentence boundaries
   var raw = text.split(/\n+|(?<=[.?!。！？])\s+/);
   var sentences = [];
   for (var i = 0; i < raw.length; i++) {
     var s = raw[i].trim();
     if (s.length > 0) sentences.push(s);
-
-    // Split long sentences (>200 chars) at commas or spaces
     if (s.length > 200) {
       var parts = s.split(/[,;，；]\s*/);
       if (parts.length > 1) {
@@ -211,17 +184,111 @@ Aether.SpeechOutput.prototype._splitSentences = function(text) {
       }
     }
   }
-
   return sentences;
 };
 
-// ── Speak (sentence-by-sentence) ─────────────────
+// ── Main speak (routes to browser or proxy) ──────
 
 Aether.SpeechOutput.prototype.speak = function(text) {
-  if (!this.isSupported || !this.synth) return;
+  if (!text) return;
   this.stop();
 
-  // User-selected voice or auto-pick
+  if (Aether.SETTINGS.ttsProvider === 'proxy') {
+    this._speakProxy(text);
+  } else {
+    this._speakBrowser(text);
+  }
+};
+
+// ── Proxy TTS (Google Translate via server) ──────
+
+Aether.SpeechOutput.prototype._speakProxy = function(text) {
+  var sentences = this._splitSentences(text);
+  if (sentences.length === 0) { if (this.onEnd) this.onEnd(); return; }
+
+  // For proxy mode, batch sentences to stay under 200 char limit
+  var chunks = [];
+  var current = '';
+  for (var i = 0; i < sentences.length; i++) {
+    var s = sentences[i];
+    if (current && (current + ' ' + s).length > 180) {
+      chunks.push(current);
+      current = s;
+    } else {
+      current = current ? current + ' ' + s : s;
+    }
+  }
+  if (current) chunks.push(current);
+
+  this.isSpeaking = true;
+  if (this.onStart) this.onStart();
+
+  var self = this;
+  var idx = 0;
+  var lang = Aether.SETTINGS.lang === 'th' ? 'th' : 'en';
+
+  function playNext() {
+    if (idx >= chunks.length) {
+      self.isSpeaking = false;
+      if (self.onEnd) self.onEnd();
+      return;
+    }
+    self._fetchAndPlay(chunks[idx], lang, function() {
+      idx++;
+      // Natural pause between chunks
+      setTimeout(playNext, 350);
+    }, function(err) {
+      // Skip on error, try next
+      idx++;
+      setTimeout(playNext, 100);
+    });
+  }
+
+  playNext();
+};
+
+Aether.SpeechOutput.prototype._fetchAndPlay = function(text, lang, onDone, onError) {
+  var self = this;
+  var url = Aether.SETTINGS.ttsProxyUrl || 'http://localhost:4001/api/tts';
+
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: text, voice: lang, rate: String(Aether.SETTINGS.voiceRate || 1.0) })
+  })
+  .then(function(res) {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.blob();
+  })
+  .then(function(blob) {
+    var audio = new Audio();
+    audio.src = URL.createObjectURL(blob);
+    self.currentAudio = audio;
+    audio.onended = function() {
+      URL.revokeObjectURL(audio.src);
+      self.currentAudio = null;
+      if (onDone) onDone();
+    };
+    audio.onerror = function() {
+      self.currentAudio = null;
+      if (onError) onError('playback error');
+    };
+    audio.play().catch(function(e) {
+      self.currentAudio = null;
+      if (onError) onError(e.message);
+    });
+  })
+  .catch(function(e) {
+    self.currentAudio = null;
+    if (onError) onError(e.message);
+  });
+};
+
+// ── Browser TTS (SpeechSynthesis) ────────────────
+
+Aether.SpeechOutput.prototype._speakBrowser = function(text) {
+  if (!this.synth) { if (this.onEnd) this.onEnd(); return; }
+
   var voice = null;
   if (Aether.SETTINGS.voiceName) {
     this._loadVoices();
@@ -229,14 +296,9 @@ Aether.SpeechOutput.prototype.speak = function(text) {
   }
   if (!voice) voice = this._pickBestVoice();
 
-  // Split into sentences
   var sentences = this._splitSentences(text);
-  if (sentences.length === 0) {
-    if (this.onEnd) this.onEnd();
-    return;
-  }
+  if (sentences.length === 0) { if (this.onEnd) this.onEnd(); return; }
 
-  // Build utterance queue
   this.pendingQueue = [];
   var self = this;
 
@@ -248,33 +310,24 @@ Aether.SpeechOutput.prototype.speak = function(text) {
         u.pitch = Aether.SETTINGS.voicePitch || 1.0;
         if (voice) u.voice = voice;
 
-        // Natural pause between sentences
-        var pause = 200; // ms
-        if (sentence.endsWith('?') || sentence.endsWith('?') || sentence.endsWith('！')) pause = 400;
-        if (sentence.endsWith('.') || sentence.endsWith('。')) pause = 300;
-        // Longer pause for paragraph-like breaks
-        if (idx > 0 && (sentences[idx-1].endsWith('.') || sentences[idx-1].endsWith('。'))) pause += 100;
+        var pause = 200;
+        if (sentence.endsWith('?')) pause = 400;
+        if (sentence.endsWith('.')) pause = 300;
 
         u.onstart = function() {
           self.isSpeaking = true;
           if (idx === 0 && self.onStart) self.onStart();
         };
-
         u.onend = function() {
-          // Speak next sentence after pause
           if (idx + 1 < sentences.length) {
-            setTimeout(function() {
-              self._speakNext();
-            }, pause);
+            setTimeout(function() { self._speakNext(); }, pause);
           } else {
             self.isSpeaking = false;
             self.pendingQueue = [];
             if (self.onEnd) self.onEnd();
           }
         };
-
-        u.onerror = function(e) {
-          // Skip broken sentence, try next
+        u.onerror = function() {
           if (idx + 1 < sentences.length) {
             setTimeout(function() { self._speakNext(); }, 100);
           } else {
@@ -283,13 +336,11 @@ Aether.SpeechOutput.prototype.speak = function(text) {
             if (self.onEnd) self.onEnd();
           }
         };
-
         self.synth.speak(u);
       });
     })(i, sentences[i]);
   }
 
-  // Start speaking
   this._speakNext();
 };
 
@@ -302,16 +353,12 @@ Aether.SpeechOutput.prototype._speakNext = function() {
 
 Aether.SpeechOutput.prototype.stop = function() {
   this.pendingQueue = [];
+  if (this.currentAudio) {
+    this.currentAudio.pause();
+    this.currentAudio = null;
+  }
   if (this.synth) {
     this.synth.cancel();
     this.isSpeaking = false;
   }
-};
-
-Aether.SpeechOutput.prototype.pause = function() {
-  if (this.synth) this.synth.pause();
-};
-
-Aether.SpeechOutput.prototype.resume = function() {
-  if (this.synth) this.synth.resume();
 };

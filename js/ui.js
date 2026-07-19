@@ -93,27 +93,27 @@ Aether.UI.prototype.renderMessages = function(messages) {
   var empty = document.getElementById('chat-empty');
 
   if (!messages || messages.length === 0) {
-    container.innerHTML = '';
-    container.appendChild(empty);
-    empty.style.display = 'flex';
-    empty.textContent = Aether.t('chat.empty');
+    // Remove only chat bubbles, keep chat-empty
+    this._clearBubbles(container);
+    if (empty) {
+      empty.style.display = 'flex';
+      empty.textContent = Aether.t('chat.empty');
+    }
     return;
   }
 
-  empty.style.display = 'none';
+  if (empty) empty.style.display = 'none';
 
-  // Only re-render changed messages (simple approach: render all)
-  // For performance, we track rendered count
+  // Only re-render changed messages
   var currentCount = container.querySelectorAll('.chat-msg').length;
 
-  // If fewer rendered than messages, render all (simplest for now)
   if (currentCount !== messages.length || currentCount === 0) {
-    container.innerHTML = '';
+    // Remove old bubbles, keep chat-empty
+    this._clearBubbles(container);
     for (var i = 0; i < messages.length; i++) {
       container.appendChild(this._createBubble(messages[i]));
     }
   } else {
-    // Update last message only (streaming)
     var last = messages[messages.length - 1];
     var lastEl = container.lastElementChild;
     if (lastEl && lastEl.classList.contains('chat-msg')) {
@@ -121,8 +121,14 @@ Aether.UI.prototype.renderMessages = function(messages) {
     }
   }
 
-  // Auto-scroll
   this._scrollToBottom();
+};
+
+Aether.UI.prototype._clearBubbles = function(container) {
+  var bubbles = container.querySelectorAll('.chat-msg');
+  for (var i = 0; i < bubbles.length; i++) {
+    bubbles[i].remove();
+  }
 };
 
 Aether.UI.prototype._createBubble = function(msg) {

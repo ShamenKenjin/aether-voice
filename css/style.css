@@ -277,6 +277,41 @@ body::before {
 }
 @keyframes toastIn { from { opacity:0; transform:translate(-50%,-50%) scale(0.9); } to { opacity:1; transform:translate(-50%,-50%) scale(1); } }
 
+/* ── Text Input Bar ────────────────────────────── */
+#input-bar {
+  flex-shrink:0; display:flex; align-items:center; gap:8px;
+  padding:8px 1rem 12px;
+  background:linear-gradient(transparent, var(--aether-bg) 40%);
+}
+.input-wrapper {
+  flex:1; position:relative; display:flex; flex-direction:column;
+  gap:2px;
+}
+.text-input {
+  width:100%; padding:10px 14px;
+  background:rgba(255,255,255,0.05); border:1px solid var(--aether-border);
+  border-radius:12px; color:var(--aether-text); font-size:0.9rem;
+  font-family:inherit; outline:none; transition:border-color 0.2s;
+}
+.text-input:focus { border-color:var(--aether-cyan); box-shadow:0 0 8px rgba(0,240,255,0.15); }
+.text-input::placeholder { color:var(--aether-textDim); }
+
+.file-preview {
+  font-size:0.75rem; color:var(--aether-cyan); padding:2px 8px;
+  background:rgba(0,240,255,0.08); border-radius:6px;
+  display:flex; align-items:center; gap:6px;
+  max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.file-preview .remove-file {
+  cursor:pointer; opacity:0.6; font-size:0.9rem;
+}
+.file-preview .remove-file:hover { opacity:1; }
+.file-preview.hidden { display:none; }
+
+.send-btn { border-color:var(--aether-cyan); color:var(--aether-cyan); }
+.send-btn:hover { background:rgba(0,240,255,0.1); box-shadow:var(--aether-glowCyan); }
+.send-btn:disabled { opacity:0.3; pointer-events:none; }
+
 /* ── Error Toast ───────────────────────────────── */
 .error-toast {
   position:fixed; bottom:100px; left:50%; transform:translateX(-50%);

@@ -59,6 +59,34 @@ Aether.UI.prototype._bindControls = function() {
   document.getElementById('btn-clear').addEventListener('click', function() {
     if (self.onClear) self.onClear();
   });
+
+  // Text input
+  var textInput = document.getElementById('text-input');
+  textInput.placeholder = Aether.t('chat.placeholder');
+  textInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      self._submitText();
+    }
+  });
+
+  document.getElementById('btn-send').addEventListener('click', function() {
+    self._submitText();
+  });
+
+  // File attachment
+  document.getElementById('btn-attach').addEventListener('click', function() {
+    document.getElementById('file-input').click();
+  });
+
+  var self = this;
+  this._attachedFile = null;
+  document.getElementById('file-input').addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    self._attachedFile = file;
+    self._showFilePreview(file);
+  });
 };
 
 // ── Mic Button States ────────────────────────────
@@ -381,4 +409,62 @@ Aether.UI.prototype._escapeHtml = function(text) {
   var div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+};
+
+// ── Text Input + File Attachment ─────────────────
+
+Aether.UI.prototype._submitText = function() {
+  var input = document.getElementById('text-input');
+  var text = input.value.trim();
+  var hasFile = !!this._attachedFile;
+
+  if (!text && !hasFile) return;
+
+  if (this._attachedFile) {
+    // Read file and include in message
+    this._readFileContent(this._attachedFile, function(fileContent) {
+      var msg = text;
+      if (fileContent) {
+        msg += '\n\n[File: ' + this._attachedFile.name + ']\n' + fileContent;
+      }
+      this._clearInput();
+      if (this.onTextSend) this.onTextSend(msg);
+    }.bind(this));
+  } else {
+    this._clearInput();
+    if (this.onTextSend) this.onTextSend(text);
+  }
+};
+
+Aether.UI.prototype._clearInput = function() {
+  document.getElementById('text-input').value = '';
+  this._attachedFile = null;
+  this._hideFilePreview();
+  document.getElementById('file-input').value = '';
+};
+
+Aether.UI.prototype._showFilePreview = function(file) {
+  var el = document.getElementById('file-preview');
+  el.classList.remove('hidden');
+  el.innerHTML = '📎 ' + file.name + ' <span class="remove-file" onclick="AetherApp.ui._clearInput()">✕</span>';
+};
+
+Aether.UI.prototype._hideFilePreview = function() {
+  document.getElementById('file-preview').classList.add('hidden');
+};
+
+Aether.UI.prototype._readFileContent = function(file, callback) {
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var content = e.target.result;
+    // Truncate to ~8000 chars to avoid token overflow
+    if (content.length > 8000) {
+      content = content.slice(0, 8000) + '\n... (truncated)';
+    }
+    callback(content);
+  };
+  reader.onerror = function() {
+    callback(null);
+  };
+  reader.readAsText(file);
 };

@@ -123,6 +123,11 @@ Aether.App.prototype._wireUI = function() {
   this.ui.onClear = function() {
     self._clearConversation();
   };
+
+  // Text input — same pipeline as voice
+  this.ui.onTextSend = function(text) {
+    self._onUserSpeech(text);
+  };
 };
 
 Aether.App.prototype._wireSettingsChange = function() {

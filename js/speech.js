@@ -187,12 +187,13 @@ Aether.SpeechOutput.prototype._splitSentences = function(text) {
   return sentences;
 };
 
-// ── Main speak (routes to browser or proxy) ──────
+// ── Main speak (proxy first, browser fallback) ───
 
 Aether.SpeechOutput.prototype.speak = function(text) {
   if (!text) return;
   this.stop();
 
+  // Always try proxy first (best quality), fallback to browser if unreachable
   if (Aether.SETTINGS.ttsProvider === 'proxy') {
     this._speakProxy(text);
   } else {
@@ -206,7 +207,6 @@ Aether.SpeechOutput.prototype._speakProxy = function(text) {
   var sentences = this._splitSentences(text);
   if (sentences.length === 0) { if (this.onEnd) this.onEnd(); return; }
 
-  // For proxy mode, batch sentences to stay under 200 char limit
   var chunks = [];
   var current = '';
   for (var i = 0; i < sentences.length; i++) {
@@ -226,21 +226,28 @@ Aether.SpeechOutput.prototype._speakProxy = function(text) {
   var self = this;
   var idx = 0;
   var lang = Aether.SETTINGS.lang === 'th' ? 'th' : 'en';
+  var proxyFailed = false;
 
   function playNext() {
-    if (idx >= chunks.length) {
+    if (proxyFailed || idx >= chunks.length) {
+      if (proxyFailed && chunks.length > 0) {
+        // Proxy unreachable — fallback to browser TTS for ALL remaining text
+        self.isSpeaking = false;
+        if (self.currentAudio) { self.currentAudio.pause(); self.currentAudio = null; }
+        self._speakBrowser(text);
+        return;
+      }
       self.isSpeaking = false;
       if (self.onEnd) self.onEnd();
       return;
     }
     self._fetchAndPlay(chunks[idx], lang, function() {
       idx++;
-      // Natural pause between chunks
       setTimeout(playNext, 350);
     }, function(err) {
-      // Skip on error, try next
-      idx++;
-      setTimeout(playNext, 100);
+      // Proxy failed — mark and fallback
+      proxyFailed = true;
+      playNext();
     });
   }
 

@@ -104,8 +104,9 @@ Aether.SpeechOutput = function() {
   this.isSupported = false;
   this.isSpeaking = false;
   this.voices = [];
-  this.onStart = null;  // callback()
-  this.onEnd = null;    // callback()
+  this.pendingQueue = [];  // sentence queue
+  this.onStart = null;
+  this.onEnd = null;
   this._init();
 };
 
@@ -117,12 +118,19 @@ Aether.SpeechOutput.prototype._init = function() {
   this.synth = window.speechSynthesis;
   this.isSupported = true;
 
-  // Load voices (may need async on some browsers)
   var self = this;
   this._loadVoices();
   if (this.synth.onvoiceschanged !== undefined) {
     this.synth.onvoiceschanged = function() { self._loadVoices(); };
   }
+
+  // Chrome bug: speechSynthesis pauses after ~15s of inactivity.
+  // Keep-alive with periodic resume.
+  setInterval(function() {
+    if (self.isSpeaking && self.synth && self.synth.paused) {
+      self.synth.resume();
+    }
+  }, 5000);
 };
 
 Aether.SpeechOutput.prototype._loadVoices = function() {
@@ -130,55 +138,170 @@ Aether.SpeechOutput.prototype._loadVoices = function() {
   this.voices = this.synth.getVoices();
 };
 
-Aether.SpeechOutput.prototype.getVoices = function() {
+// ── Smart voice selection ────────────────────────
+
+Aether.SpeechOutput.prototype._pickBestVoice = function() {
   this._loadVoices();
-  // Filter by language
-  var lang = Aether.SETTINGS.lang === 'th' ? 'th' : 'en';
-  return this.voices.filter(function(v) {
-    return v.lang.indexOf(lang) === 0;
+  var voices = this.voices;
+  if (voices.length === 0) return null;
+
+  var targetLang = Aether.SETTINGS.lang === 'th' ? 'th' : 'en';
+  var targetFull = targetLang === 'th' ? 'th-TH' : 'en-US';
+
+  // Score each voice
+  var scored = voices.map(function(v) {
+    var score = 0;
+    var name = (v.name || '').toLowerCase();
+    var lang = (v.lang || '').toLowerCase();
+
+    // Exact language match
+    if (lang === targetFull) score += 100;
+    else if (lang.indexOf(targetLang) === 0) score += 60;
+
+    // Prefer neural/cloud voices (natural sounding)
+    if (name.indexOf('neural') >= 0) score += 50;
+    if (name.indexOf('google') >= 0) score += 45;
+    if (name.indexOf('microsoft') >= 0) score += 40;
+    if (name.indexOf('natural') >= 0) score += 40;
+    if (name.indexOf('premium') >= 0) score += 35;
+    if (name.indexOf('enhanced') >= 0) score += 30;
+    if (name.indexOf('wavenet') >= 0) score += 30;
+
+    // Prefer female voices (usually clearer for assistants)
+    if (name.indexOf('female') >= 0 || name.indexOf('woman') >= 0) score += 5;
+
+    // Penalize very robotic voices
+    if (name.indexOf('default') >= 0) score -= 20;
+    if (name.indexOf('basic') >= 0) score -= 20;
+
+    return { voice: v, score: score };
   });
+
+  // Sort by score descending
+  scored.sort(function(a, b) { return b.score - a.score; });
+  return scored.length > 0 ? scored[0].voice : null;
 };
+
+// ── Sentence splitting ───────────────────────────
+
+Aether.SpeechOutput.prototype._splitSentences = function(text) {
+  if (!text) return [];
+
+  // Normalize: ensure space after punctuation
+  text = text.replace(/([.?!。！？])([^\s\d])/g, '$1 $2');
+  // Thai ending particles — split after them
+  text = text.replace(/(ค่ะ|ครับ|นะคะ|นะครับ|จ้ะ|จ้า|เลยค่ะ|เลยครับ)\s+/g, '$1\n');
+
+  // Split on sentence boundaries
+  var raw = text.split(/\n+|(?<=[.?!。！？])\s+/);
+  var sentences = [];
+  for (var i = 0; i < raw.length; i++) {
+    var s = raw[i].trim();
+    if (s.length > 0) sentences.push(s);
+
+    // Split long sentences (>200 chars) at commas or spaces
+    if (s.length > 200) {
+      var parts = s.split(/[,;，；]\s*/);
+      if (parts.length > 1) {
+        sentences.pop();
+        for (var j = 0; j < parts.length; j++) {
+          var p = parts[j].trim();
+          if (p) sentences.push(p);
+        }
+      }
+    }
+  }
+
+  return sentences;
+};
+
+// ── Speak (sentence-by-sentence) ─────────────────
 
 Aether.SpeechOutput.prototype.speak = function(text) {
   if (!this.isSupported || !this.synth) return;
-
-  // Cancel any ongoing speech
   this.stop();
 
-  var utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = Aether.SETTINGS.voiceRate || 1.0;
-  utterance.pitch = Aether.SETTINGS.voicePitch || 1.0;
-
-  // Select voice
+  // User-selected voice or auto-pick
+  var voice = null;
   if (Aether.SETTINGS.voiceName) {
     this._loadVoices();
-    var found = this.voices.find(function(v) { return v.name === Aether.SETTINGS.voiceName; });
-    if (found) utterance.voice = found;
-  } else {
-    // Auto-select based on lang
-    var lang = Aether.SETTINGS.lang === 'th' ? 'th-TH' : 'en-US';
-    var defVoice = this.voices.find(function(v) { return v.lang === lang; });
-    if (defVoice) utterance.voice = defVoice;
+    voice = this.voices.find(function(v) { return v.name === Aether.SETTINGS.voiceName; });
+  }
+  if (!voice) voice = this._pickBestVoice();
+
+  // Split into sentences
+  var sentences = this._splitSentences(text);
+  if (sentences.length === 0) {
+    if (this.onEnd) this.onEnd();
+    return;
   }
 
+  // Build utterance queue
+  this.pendingQueue = [];
   var self = this;
-  utterance.onstart = function() {
-    self.isSpeaking = true;
-    if (self.onStart) self.onStart();
-  };
-  utterance.onend = function() {
-    self.isSpeaking = false;
-    if (self.onEnd) self.onEnd();
-  };
-  utterance.onerror = function() {
-    self.isSpeaking = false;
-    if (self.onEnd) self.onEnd();
-  };
 
-  this.synth.speak(utterance);
+  for (var i = 0; i < sentences.length; i++) {
+    (function(idx, sentence) {
+      self.pendingQueue.push(function() {
+        var u = new SpeechSynthesisUtterance(sentence);
+        u.rate = Aether.SETTINGS.voiceRate || 1.0;
+        u.pitch = Aether.SETTINGS.voicePitch || 1.0;
+        if (voice) u.voice = voice;
+
+        // Natural pause between sentences
+        var pause = 200; // ms
+        if (sentence.endsWith('?') || sentence.endsWith('?') || sentence.endsWith('！')) pause = 400;
+        if (sentence.endsWith('.') || sentence.endsWith('。')) pause = 300;
+        // Longer pause for paragraph-like breaks
+        if (idx > 0 && (sentences[idx-1].endsWith('.') || sentences[idx-1].endsWith('。'))) pause += 100;
+
+        u.onstart = function() {
+          self.isSpeaking = true;
+          if (idx === 0 && self.onStart) self.onStart();
+        };
+
+        u.onend = function() {
+          // Speak next sentence after pause
+          if (idx + 1 < sentences.length) {
+            setTimeout(function() {
+              self._speakNext();
+            }, pause);
+          } else {
+            self.isSpeaking = false;
+            self.pendingQueue = [];
+            if (self.onEnd) self.onEnd();
+          }
+        };
+
+        u.onerror = function(e) {
+          // Skip broken sentence, try next
+          if (idx + 1 < sentences.length) {
+            setTimeout(function() { self._speakNext(); }, 100);
+          } else {
+            self.isSpeaking = false;
+            self.pendingQueue = [];
+            if (self.onEnd) self.onEnd();
+          }
+        };
+
+        self.synth.speak(u);
+      });
+    })(i, sentences[i]);
+  }
+
+  // Start speaking
+  this._speakNext();
+};
+
+Aether.SpeechOutput.prototype._speakNext = function() {
+  if (this.pendingQueue.length > 0) {
+    var next = this.pendingQueue.shift();
+    next();
+  }
 };
 
 Aether.SpeechOutput.prototype.stop = function() {
+  this.pendingQueue = [];
   if (this.synth) {
     this.synth.cancel();
     this.isSpeaking = false;

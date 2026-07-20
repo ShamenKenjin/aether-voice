@@ -10,7 +10,7 @@
 - **Repo**: https://github.com/ShamenKenjin/aether-voice
 - **Live**: https://shamenkenjin.github.io/aether-voice/
 - **Started**: 2026-07-19
-- **Last commit**: 0cd98ff
+- **Last commit**: 0f7b494
 
 ---
 

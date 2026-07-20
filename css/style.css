@@ -238,6 +238,22 @@ body::before{
 .file-preview .remove-file:hover{opacity:1;}
 .file-preview.hidden{display:none;}
 
+/* Toast messages (interim + error) */
+.interim-toast{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:rgba(6,18,32,0.95);border:1px solid var(--cyan);
+  border-radius:8px;padding:12px 20px;z-index:50;
+  font-size:0.9rem;color:#fff;text-align:center;
+  max-width:80%;box-shadow:0 0 24px rgba(0,210,255,0.3);
+}
+.error-toast{
+  position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+  background:rgba(255,61,0,0.12);border:1px solid var(--red);
+  border-radius:6px;padding:8px 16px;z-index:50;
+  font-size:0.75rem;color:var(--red);
+  max-width:80%;text-align:center;
+}
+
 /* ═══ SETTINGS OVERLAY ══════════════════════════ */
 .overlay{
   position:fixed;inset:0;z-index:100;

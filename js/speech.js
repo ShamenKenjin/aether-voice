@@ -374,11 +374,12 @@ Aether.SpeechOutput.prototype._speakGemini = function(text) {
   var idx = 0;
   var geminiFailed = false;
 
-  // Pre-fetch first chunk immediately in background
+  // Pre-fetch first chunk in background while we prepare
+  var prefetchReady = false;
   if (apiKey && chunks.length > 0) {
     this._fetchGeminiChunk(chunks[0], apiKey, function(audioUrl) {
-      // First chunk loaded — will be used if browser hasn't started yet
-      self._geminiFirstChunk = audioUrl;
+      self._prefetchedFirst = audioUrl;
+      prefetchReady = true;
     });
   }
 
@@ -391,27 +392,33 @@ Aether.SpeechOutput.prototype._speakGemini = function(text) {
 
     var chunk = chunks[idx];
 
-    // First chunk: play via browser TTS instantly (0ms latency)
-    if (idx === 0 && !geminiFailed && self.synth) {
-      self._speakBrowserChunk(chunk, function() {
-        idx++;
-        speakNext();
-      });
+    // First chunk: wait for pre-fetched Gemini audio
+    if (idx === 0 && apiKey && !geminiFailed) {
+      if (self._prefetchedFirst) {
+        var url = self._prefetchedFirst;
+        self._prefetchedFirst = null;
+        var audio = new Audio();
+        audio.src = url;
+        self.currentAudio = audio;
+        audio.onended = function() { URL.revokeObjectURL(url); self.currentAudio = null; idx++; setTimeout(speakNext, 30); };
+        audio.onerror = function() { URL.revokeObjectURL(url); self.currentAudio = null; idx++; speakNext(); };
+        audio.play().catch(function() { URL.revokeObjectURL(url); self.currentAudio = null; idx++; speakNext(); });
+        return;
+      }
+      // Pre-fetch still loading — check again in 50ms
+      setTimeout(speakNext, 50);
       return;
     }
 
-    // Subsequent chunks: use Gemini TTS
     if (!geminiFailed && apiKey) {
       self._fetchAndPlayGemini(chunk, apiKey, function() {
         idx++;
         setTimeout(speakNext, 30);
       }, function() {
         geminiFailed = true;
-        // Fallback to browser for remaining
         self._speakBrowserChunk(chunk, function() { idx++; speakNext(); });
       });
     } else {
-      // Browser fallback
       self._speakBrowserChunk(chunk, function() { idx++; speakNext(); });
     }
   }

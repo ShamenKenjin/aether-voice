@@ -209,7 +209,12 @@ Aether.SpeechOutput.prototype.speak = function(text) {
   if (!text) return;
 
   if (Aether.SETTINGS.ttsProvider === 'gemini') {
-    this._speakGemini(text);
+    if (!Aether.SETTINGS.geminiKey) {
+      // No Gemini key configured — auto-use browser
+      this._speakBrowser(text);
+    } else {
+      this._speakGemini(text);
+    }
   } else if (Aether.SETTINGS.ttsProvider === 'proxy') {
     this._speakProxy(text);
   } else {
@@ -345,7 +350,13 @@ Aether.SpeechOutput.prototype._pcmToWav = function(pcmData, sampleRate) {
 
 Aether.SpeechOutput.prototype._speakGemini = function(text) {
   var apiKey = Aether.SETTINGS.geminiKey;
-  if (!apiKey) { this.isSpeaking = false; if (this.onEnd) this.onEnd(); return; }
+  if (!apiKey) {
+    // No Gemini key — fallback to browser TTS
+    console.warn('Gemini TTS: no API key, falling back to browser');
+    this.isSpeaking = false;
+    this._speakBrowser(text);
+    return;
+  }
 
   var sentences = this._splitSentences(text);
   if (sentences.length === 0) { this.isSpeaking = false; if (this.onEnd) this.onEnd(); return; }
@@ -370,24 +381,30 @@ Aether.SpeechOutput.prototype._speakGemini = function(text) {
   var loaded = 0;
   var playIdx = 0;
   var playing = false;
+  var fetchErrors = 0;
 
   // Fire ALL chunk fetches in parallel
   for (var c = 0; c < chunks.length; c++) {
     (function(idx) {
       self._fetchGeminiChunk(chunks[idx], apiKey, function(url) {
-        audioUrls[idx] = url;
+        if (url) {
+          audioUrls[idx] = url;
+        } else {
+          fetchErrors++;
+        }
         loaded++;
-        // Try to start playing if not started yet
         if (!playing && audioUrls[0]) tryPlay();
+        // If all failed, fallback
+        if (loaded === chunks.length && fetchErrors === chunks.length) {
+          self.isSpeaking = false;
+          self._speakBrowser(text);
+        }
       });
     })(c);
   }
 
   function tryPlay() {
-    if (audioUrls[0]) {
-      playing = true;
-      playNext();
-    }
+    if (audioUrls[0]) { playing = true; playNext(); }
   }
 
   function playNext() {
@@ -398,8 +415,13 @@ Aether.SpeechOutput.prototype._speakGemini = function(text) {
     }
 
     var url = audioUrls[playIdx];
+    if (url === undefined && fetchErrors > 0) {
+      // This chunk failed to load — skip it
+      playIdx++;
+      playNext();
+      return;
+    }
     if (!url) {
-      // This chunk still loading — wait and retry
       setTimeout(playNext, 30);
       return;
     }

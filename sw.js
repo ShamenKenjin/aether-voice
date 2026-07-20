@@ -1,6 +1,6 @@
 // Aether — sw.js
 // Service Worker for offline caching + PWA installability
-var CACHE_NAME = 'aether-v3';
+var CACHE_NAME = 'aether-v4';
 
 var ASSETS = [
   '/aether-voice/',

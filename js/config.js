@@ -19,8 +19,8 @@ Aether.PROVIDERS = {
   },
   gemini: {
     name: 'Gemini',
-    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
-    model: 'gemini-2.5-flash',
+    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
+    model: 'gemini-3.5-flash',
     apiKeyField: 'geminiKey',
     maxTokens: 2048,
     temperature: 0.7,

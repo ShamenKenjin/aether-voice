@@ -1,6 +1,6 @@
-// Aether — orb.js → Sci-fi AI Face
-// Canvas-based holographic humanoid face with 5 expression states
-// Reuses same API as old orb: setState, pulse — zero changes needed in app.js/ui.js
+// Aether — orb.js → Sci-fi AI Human Face
+// Canvas-based holographic human face: realistic proportions, sci-fi neon glow
+// API unchanged: Aether.Orb(canvasId), setState, pulse
 var Aether = window.Aether || {};
 
 Aether.Orb = function(canvasId) {
@@ -10,21 +10,22 @@ Aether.Orb = function(canvasId) {
   this.frame = 0;
   this.animId = null;
 
-  // Reactivity / mouth-open target
   this.reactivity = 0;
   this.targetReactivity = 0;
   this.mouthOpen = 0;
   this.mouthTarget = 0;
 
-  // Eye tracking
-  this.eyeLookX = 0;
-  this.eyeLookY = 0;
-  this.eyeLookTargetX = 0;
-  this.eyeLookTargetY = 0;
+  // Eye movement
+  this.eyeLookX = 0; this.eyeLookY = 0;
+  this.eyeTargetX = 0; this.eyeTargetY = 0;
 
   // Blink
   this.blinkTimer = 80 + Math.random() * 120;
   this.blinking = 0;
+
+  // Micro-head movement
+  this.headTilt = 0;
+  this.headNod = 0;
 
   this._resize();
   this._startLoop();
@@ -39,6 +40,7 @@ Aether.Orb.prototype._resize = function() {
   var parent = this.canvas.parentElement;
   var size = Math.min(parent.clientWidth, parent.clientHeight);
   var dpr = window.devicePixelRatio || 1;
+  if (dpr > 2) dpr = 2;
   this.canvas.width = size * dpr;
   this.canvas.height = size * dpr;
   this.canvas.style.width = size + 'px';
@@ -48,340 +50,357 @@ Aether.Orb.prototype._resize = function() {
   this.cy = size / 2;
 };
 
-// ── Animation Loop ───────────────────────────────
+// ── Animation ────────────────────────────────────
 
 Aether.Orb.prototype._startLoop = function() {
   var self = this;
-  var animate = function() {
+  (function animate() {
     self.frame++;
     self._update();
     self._draw();
     self.animId = requestAnimationFrame(animate);
-  };
-  animate();
+  })();
 };
 
 Aether.Orb.prototype._update = function() {
-  // Smooth reactivity
   this.reactivity += (this.targetReactivity - this.reactivity) * 0.12;
 
-  // Mouth animation (during speaking)
+  // Mouth during speech
   if (this.state === 'speaking') {
-    this.mouthTarget = 0.3 + Math.sin(this.frame * 0.25) * 0.2 + Math.abs(Math.sin(this.frame * 0.15)) * 0.5;
+    this.mouthTarget = 0.35 + Math.sin(this.frame * 0.22) * 0.2 + Math.abs(Math.sin(this.frame * 0.13)) * 0.45;
+  } else if (this.state === 'idle') {
+    this.mouthTarget = Math.sin(this.frame * 0.015) * 0.03;
   } else {
     this.mouthTarget = 0;
   }
-  this.mouthOpen += (this.mouthTarget - this.mouthOpen) * 0.3;
+  this.mouthOpen += (this.mouthTarget - this.mouthOpen) * 0.25;
 
-  // Eye tracking — random micro-movements
-  if (this.frame % 40 === 0) {
-    this.eyeLookTargetX = (Math.random() - 0.5) * 0.12;
-    this.eyeLookTargetY = (Math.random() - 0.5) * 0.08;
+  // Eye tracking
+  if (this.frame % 50 === 0) {
+    this.eyeTargetX = (Math.random() - 0.5) * 0.1;
+    this.eyeTargetY = (Math.random() - 0.5) * 0.06;
   }
-  this.eyeLookX += (this.eyeLookTargetX - this.eyeLookX) * 0.1;
-  this.eyeLookY += (this.eyeLookTargetY - this.eyeLookY) * 0.1;
+  this.eyeLookX += (this.eyeTargetX - this.eyeLookX) * 0.08;
+  this.eyeLookY += (this.eyeTargetY - this.eyeLookY) * 0.08;
 
   // Blink
   this.blinkTimer--;
-  if (this.blinkTimer <= 0) {
-    this.blinking = 1;
-    this.blinkTimer = 120 + Math.random() * 200;
-  }
-  if (this.blinking > 0) this.blinking -= 0.15;
+  if (this.blinkTimer <= 0) { this.blinking = 1; this.blinkTimer = 100 + Math.random() * 180; }
+  if (this.blinking > 0) this.blinking -= 0.12;
+
+  // Micro head movement (breathing / life)
+  this.headNod = Math.sin(this.frame * 0.025) * 0.02;
+  if (this.state === 'listening') this.headTilt = Math.sin(this.frame * 0.04) * 0.03;
+  else this.headTilt += (0 - this.headTilt) * 0.05;
 };
 
-// ── State Public API ─────────────────────────────
+// ── Public API ───────────────────────────────────
 
 Aether.Orb.prototype.setState = function(state) {
   if (this.state === state) return;
   this.state = state;
   switch (state) {
     case 'idle':      this.targetReactivity = 0; break;
-    case 'listening': this.targetReactivity = 0.7; break;
+    case 'listening': this.targetReactivity = 0.6; break;
     case 'thinking':  this.targetReactivity = 0; break;
-    case 'speaking':  this.targetReactivity = 0.4; break;
+    case 'speaking':  this.targetReactivity = 0.35; break;
     case 'error':     this.targetReactivity = 0; break;
   }
 };
 
 Aether.Orb.prototype.pulse = function(intensity) {
-  if (this.state === 'listening') {
-    this.targetReactivity = Math.min(1, 0.4 + intensity * 0.6);
-  }
-  if (this.state === 'thinking') {
-    this.targetReactivity = Math.min(1, intensity * 0.5);
-  }
+  if (this.state === 'listening') this.targetReactivity = Math.min(1, 0.4 + intensity * 0.6);
+  if (this.state === 'thinking') this.targetReactivity = Math.min(1, intensity * 0.5);
 };
 
-// ── Draw ─────────────────────────────────────────
+// ── Colors ───────────────────────────────────────
 
-Aether.Orb.prototype._draw = function() {
-  var ctx = this.ctx;
-  var dpr = window.devicePixelRatio || 1;
-  ctx.save();
-  ctx.scale(dpr, dpr);
-
-  ctx.clearRect(0, 0, this.size, this.size);
-
-  var scale = this.size / 220; // base design at 220px
-
-  // Get colors based on state
-  var colors = this._colors();
-
-  ctx.save();
-  ctx.translate(this.cx, this.cy);
-  ctx.scale(scale, scale);
-
-  // Glow aura
-  this._drawAura(ctx, colors);
-
-  // Neck/shoulders
-  this._drawNeck(ctx, colors);
-
-  // Head outline
-  this._drawHead(ctx, colors);
-
-  // Eyes
-  this._drawEyes(ctx, colors);
-
-  // Nose hint
-  this._drawNose(ctx, colors);
-
-  // Mouth
-  this._drawMouth(ctx, colors);
-
-  // Scan lines / hologram effect
-  this._drawScanLines(ctx, colors);
-
-  ctx.restore();
-  ctx.restore();
-};
-
-// ── Color palette per state ──────────────────────
-
-Aether.Orb.prototype._colors = function() {
+Aether.Orb.prototype._c = function() {
   var r = this.reactivity;
   switch (this.state) {
-    case 'idle':
-      return { primary: 'rgba(0,240,255,0.9)', secondary: 'rgba(0,180,220,0.5)', glow: 'rgba(0,240,255,0.15)', accent: 'rgba(0,240,255,0.3)' };
-    case 'listening':
-      return { primary: 'rgba(255,255,255,0.95)', secondary: 'rgba(200,240,255,0.7)', glow: 'rgba(0,240,255,' + (0.15 + r * 0.2) + ')', accent: 'rgba(255,255,255,0.4)' };
-    case 'thinking':
-      return { primary: 'rgba(255,0,255,0.9)', secondary: 'rgba(200,50,220,0.6)', glow: 'rgba(255,0,255,0.12)', accent: 'rgba(255,0,255,0.3)' };
-    case 'speaking':
-      return { primary: 'rgba(0,240,255,0.9)', secondary: 'rgba(0,200,230,0.5)', glow: 'rgba(0,240,255,0.15)', accent: 'rgba(0,240,255,0.35)' };
-    case 'error':
-      return { primary: 'rgba(255,68,102,0.9)', secondary: 'rgba(200,50,70,0.5)', glow: 'rgba(255,68,102,0.1)', accent: 'rgba(255,68,102,0.25)' };
-    default:
-      return { primary: 'rgba(0,240,255,0.9)', secondary: 'rgba(0,180,220,0.5)', glow: 'rgba(0,240,255,0.15)', accent: 'rgba(0,240,255,0.3)' };
+    case 'idle':      return { p: '0,240,255',  a:0.9,  glow:0.12, s: '0,160,200',   sa:0.45 };
+    case 'listening': return { p: '200,255,255',a:0.95, glow:0.22, s: '120,220,255', sa:0.55 };
+    case 'thinking':  return { p: '255,80,255', a:0.9,  glow:0.15, s: '180,40,200',  sa:0.5  };
+    case 'speaking':  return { p: '0,240,255',  a:0.9,  glow:0.14, s: '0,170,210',   sa:0.45 };
+    case 'error':     return { p: '255,68,102', a:0.9,  glow:0.1,  s: '180,40,60',   sa:0.4  };
+    default:          return { p: '0,240,255',  a:0.9,  glow:0.12, s: '0,160,200',   sa:0.45 };
   }
 };
 
-// ── Aura / background glow ───────────────────────
+// ── Main Draw ────────────────────────────────────
 
-Aether.Orb.prototype._drawAura = function(ctx, c) {
-  var pulse = 1 + Math.sin(this.frame * 0.02) * 0.08;
-  var r = 95 * pulse;
-  var grad = ctx.createRadialGradient(0, 0, r * 0.4, 0, 0, r);
-  grad.addColorStop(0, c.glow);
-  grad.addColorStop(1, 'transparent');
-  ctx.fillStyle = grad;
+Aether.Orb.prototype._draw = function() {
+  var ctx = this.ctx, dpr = Math.min(window.devicePixelRatio || 1, 2);
+  ctx.save(); ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, this.size, this.size);
+
+  var s = this.size / 220;
+  var c = this._c();
+
+  ctx.save();
+  ctx.translate(this.cx, this.cy + this.headNod * 10 * s);
+  ctx.rotate(this.headTilt);
+  ctx.scale(s, s);
+
+  this._bgGlow(ctx, c);
+  this._shoulders(ctx, c);
+  this._neck(ctx, c);
+  this._headShape(ctx, c);
+  this._hair(ctx, c);
+  this._ears(ctx, c);
+  this._eyebrows(ctx, c);
+  this._eyes(ctx, c);
+  this._nose(ctx, c);
+  this._mouth(ctx, c);
+  this._jawline(ctx, c);
+  this._scanLines(ctx, c);
+
+  ctx.restore();
+  ctx.restore();
+};
+
+// ── Parts ────────────────────────────────────────
+
+Aether.Orb.prototype._bgGlow = function(ctx, c) {
+  var r = 95 + Math.sin(this.frame * 0.02) * 8;
+  var g = ctx.createRadialGradient(0, 5, r * 0.3, 0, 5, r);
+  g.addColorStop(0, 'rgba(' + c.p + ',' + c.glow + ')');
+  g.addColorStop(1, 'transparent');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 5, r, 0, Math.PI * 2); ctx.fill();
+};
+
+Aether.Orb.prototype._shoulders = function(ctx, c) {
+  ctx.fillStyle = 'rgba(' + c.p + ',0.04)';
+  ctx.strokeStyle = 'rgba(' + c.s + ',' + c.sa + ')';
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.moveTo(-65, 92); ctx.quadraticCurveTo(-40, 78, -28, 68);
+  ctx.lineTo(28, 68); ctx.quadraticCurveTo(40, 78, 65, 92);
+  ctx.quadraticCurveTo(70, 100, 75, 108);
+  ctx.lineTo(-75, 108); ctx.quadraticCurveTo(-70, 100, -65, 92);
+  ctx.closePath();
   ctx.fill();
-};
-
-// ── Neck ─────────────────────────────────────────
-
-Aether.Orb.prototype._drawNeck = function(ctx, c) {
-  ctx.strokeStyle = c.secondary;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(-15, 55);
-  ctx.lineTo(-12, 95);
-  ctx.moveTo(15, 55);
-  ctx.lineTo(12, 95);
   ctx.stroke();
 
-  // Collar line
+  // Collarbone hint
   ctx.beginPath();
-  ctx.moveTo(-25, 95);
-  ctx.lineTo(25, 95);
+  ctx.moveTo(-28, 68); ctx.quadraticCurveTo(0, 76, 28, 68);
   ctx.stroke();
 };
 
-// ── Head ─────────────────────────────────────────
-
-Aether.Orb.prototype._drawHead = function(ctx, c) {
-  var pulse = 1 + Math.sin(this.frame * 0.03) * 0.03;
-
-  // Hexagonal head outline
-  var hw = 42 * pulse;
-  var hh = 52 * pulse;
-  var top = -58 * pulse;
-  var bot = 46 * pulse;
-
-  ctx.strokeStyle = c.primary;
-  ctx.lineWidth = 1.8;
-  ctx.shadowColor = c.primary.replace('0.9', '0.5').replace('0.95', '0.5');
-  ctx.shadowBlur = 8;
-
-  // Rounded hexagon
-  ctx.beginPath();
-  var pts = [
-    [0, top], [hw, top + 15], [hw, bot - 15], [0, bot],
-    [-hw, bot - 15], [-hw, top + 15]
-  ];
-  ctx.moveTo(pts[0][0], pts[0][1]);
-  for (var i = 1; i < 6; i++) {
-    ctx.lineTo(pts[i][0], pts[i][1]);
-  }
-  ctx.closePath();
-  ctx.stroke();
-
-  // Inner glow line
-  ctx.strokeStyle = c.accent;
-  ctx.lineWidth = 1;
-  ctx.shadowBlur = 3;
-  ctx.beginPath();
-  var inner = 0.92;
-  ctx.moveTo(pts[0][0] * inner, pts[0][1] * inner);
-  for (var j = 1; j < 6; j++) {
-    ctx.lineTo(pts[j][0] * inner, pts[j][1] * inner);
-  }
-  ctx.closePath();
-  ctx.stroke();
-
-  ctx.shadowBlur = 0;
-};
-
-// ── Eyes ─────────────────────────────────────────
-
-Aether.Orb.prototype._drawEyes = function(ctx, c) {
-  var eyeY = -15;
-  var eyeGap = 16;
-  var eyeW = 14;
-  var eyeH = this.blinking > 0.5 ? 1.5 : 8;
-
-  // Listening: eyes wider
-  if (this.state === 'listening') { eyeH *= 1.3; eyeW *= 1.05; }
-  // Thinking: eyes narrower
-  if (this.state === 'thinking') { eyeH *= 0.65; eyeW *= 0.95; }
-
-  // Left eye
-  var lx = -eyeGap + this.eyeLookX * 3;
-  var ly = eyeY + this.eyeLookY * 2;
-  this._drawEye(ctx, lx, ly, eyeW, eyeH, c);
-  // Right eye
-  var rx = eyeGap + this.eyeLookX * 3;
-  var ry = eyeY + this.eyeLookY * 2;
-  this._drawEye(ctx, rx, ry, eyeW, eyeH, c);
-};
-
-Aether.Orb.prototype._drawEye = function(ctx, x, y, w, h, c) {
-  // Outer eye shape
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.strokeStyle = c.primary;
+Aether.Orb.prototype._neck = function(ctx, c) {
+  ctx.strokeStyle = 'rgba(' + c.s + ',' + c.sa + ')';
   ctx.lineWidth = 1.2;
   ctx.beginPath();
-  ctx.ellipse(x, y, w, h, 0, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.moveTo(-10, 28); ctx.quadraticCurveTo(-12, 45, -18, 65);
+  ctx.moveTo(10, 28); ctx.quadraticCurveTo(12, 45, 18, 65);
   ctx.stroke();
 
-  // Iris/pupil glow
-  var glowGrad = ctx.createRadialGradient(x, y - 1, 1, x, y, w * 0.7);
-  glowGrad.addColorStop(0, c.primary);
-  glowGrad.addColorStop(0.5, c.secondary);
-  glowGrad.addColorStop(1, 'transparent');
-  ctx.fillStyle = glowGrad;
+  // Neck fill
+  ctx.fillStyle = 'rgba(' + c.p + ',0.03)';
   ctx.beginPath();
-  ctx.arc(x, y, w * 0.55, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Pupil dot
-  ctx.fillStyle = '#fff';
-  ctx.beginPath();
-  ctx.arc(x + this.eyeLookX * 2, y + this.eyeLookY * 1.5, 2, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.moveTo(-10, 28); ctx.quadraticCurveTo(-12, 45, -18, 65);
+  ctx.lineTo(18, 65); ctx.quadraticCurveTo(12, 45, 10, 28);
+  ctx.closePath(); ctx.fill();
 };
 
-// ── Nose ─────────────────────────────────────────
+Aether.Orb.prototype._headShape = function(ctx, c) {
+  // Oval face
+  ctx.fillStyle = 'rgba(' + c.p + ',0.04)';
+  ctx.strokeStyle = 'rgba(' + c.p + ',' + c.a + ')';
+  ctx.lineWidth = 1.8;
+  ctx.shadowColor = 'rgba(' + c.p + ',0.4)'; ctx.shadowBlur = 6;
+  ctx.beginPath();
+  ctx.ellipse(0, -2, 36, 48, 0, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+  ctx.shadowBlur = 0;
 
-Aether.Orb.prototype._drawNose = function(ctx, c) {
-  ctx.strokeStyle = c.secondary;
+  // Chin definition
+  ctx.strokeStyle = 'rgba(' + c.s + ',0.3)';
   ctx.lineWidth = 0.8;
   ctx.beginPath();
-  ctx.moveTo(0, -2);
-  ctx.lineTo(0, 8);
-  ctx.moveTo(-4, 8);
-  ctx.lineTo(4, 8);
+  ctx.arc(0, 40, 12, 0.2, Math.PI - 0.2);
   ctx.stroke();
 };
 
-// ── Mouth ────────────────────────────────────────
+Aether.Orb.prototype._hair = function(ctx, c) {
+  // Geometric hair silhouette — angled cuts
+  ctx.strokeStyle = 'rgba(' + c.p + ',0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  // Hairline curve
+  ctx.moveTo(-30, -40); ctx.quadraticCurveTo(0, -52, 30, -40);
+  // Right side
+  ctx.quadraticCurveTo(38, -30, 36, -10);
+  ctx.quadraticCurveTo(37, 5, 34, 18);
+  ctx.moveTo(-30, -40);
+  // Left side
+  ctx.quadraticCurveTo(-38, -30, -36, -10);
+  ctx.quadraticCurveTo(-37, 5, -34, 18);
+  ctx.stroke();
 
-Aether.Orb.prototype._drawMouth = function(ctx, c) {
-  var my = 20;
-  var open = this.mouthOpen;
+  // Hair fill
+  ctx.fillStyle = 'rgba(' + c.p + ',0.05)';
+  ctx.beginPath();
+  ctx.moveTo(-30, -40); ctx.quadraticCurveTo(0, -52, 30, -40);
+  ctx.quadraticCurveTo(38, -30, 36, -10); ctx.quadraticCurveTo(37, 5, 34, 18);
+  ctx.lineTo(35, -10); ctx.lineTo(-35, -10); ctx.lineTo(-34, 18);
+  ctx.quadraticCurveTo(-37, 5, -36, -10); ctx.quadraticCurveTo(-38, -30, -30, -40);
+  ctx.fill();
+};
 
-  if (open < 0.02) {
-    // Closed: thin line
-    ctx.strokeStyle = c.primary;
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(-12, my);
-    ctx.lineTo(12, my);
-    ctx.stroke();
-  } else {
-    // Open: ellipse
-    var mw = 14 + open * 3;
-    var mh = open * 10;
-    ctx.fillStyle = 'rgba(0,0,0,0.4)';
-    ctx.strokeStyle = c.primary;
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.ellipse(0, my + mh * 0.5, mw, mh, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+Aether.Orb.prototype._ears = function(ctx, c) {
+  ctx.strokeStyle = 'rgba(' + c.s + ',0.3)';
+  ctx.lineWidth = 0.9;
+  // Left ear
+  ctx.beginPath(); ctx.ellipse(-35, -2, 4, 9, -0.15, 0, Math.PI * 2); ctx.stroke();
+  // Right ear
+  ctx.beginPath(); ctx.ellipse(35, -2, 4, 9, 0.15, 0, Math.PI * 2); ctx.stroke();
+};
 
-    // Inner glow
-    var innerGrad = ctx.createRadialGradient(0, my + mh * 0.3, 0, 0, my + mh * 0.5, mh * 0.8);
-    innerGrad.addColorStop(0, c.glow.replace('0.15', '0.25').replace('0.12', '0.2').replace('0.1', '0.18'));
-    innerGrad.addColorStop(1, 'transparent');
-    ctx.fillStyle = innerGrad;
-    ctx.beginPath();
-    ctx.ellipse(0, my + mh * 0.5, mw * 0.9, mh * 0.7, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
+Aether.Orb.prototype._eyebrows = function(ctx, c) {
+  var browY = -22;
+  ctx.strokeStyle = 'rgba(' + c.p + ',' + (c.a * 0.7) + ')';
+  ctx.lineWidth = 1.4;
+  // Left brow
+  ctx.beginPath(); ctx.moveTo(-24, browY - 2); ctx.quadraticCurveTo(-14, browY - 6, -6, browY); ctx.stroke();
+  // Right brow
+  ctx.beginPath(); ctx.moveTo(24, browY - 2); ctx.quadraticCurveTo(14, browY - 6, 6, browY); ctx.stroke();
 
-  // Error: frown lines
+  // Error: furrowed
   if (this.state === 'error') {
-    ctx.strokeStyle = c.primary;
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(-20, my - 12);
-    ctx.lineTo(-9, my);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(20, my - 12);
-    ctx.lineTo(9, my);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-24, browY - 4); ctx.quadraticCurveTo(-15, browY, -7, browY + 1); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(24, browY - 4); ctx.quadraticCurveTo(15, browY, 7, browY + 1); ctx.stroke();
   }
 };
 
-// ── Scan Lines ───────────────────────────────────
+Aether.Orb.prototype._eyes = function(ctx, c) {
+  var ey = -10, gap = 14;
+  var ew = 12, eh = this.blinking > 0.4 ? 1.5 : 6.5;
 
-Aether.Orb.prototype._drawScanLines = function(ctx, c) {
-  var t = this.frame * 0.02;
-  ctx.strokeStyle = c.accent.replace('0.3', '0.08').replace('0.35', '0.1').replace('0.25', '0.06');
-  ctx.lineWidth = 0.5;
+  if (this.state === 'listening') { eh *= 1.25; ew *= 1.04; }
+  if (this.state === 'thinking') { eh *= 0.6; }
+  if (this.state === 'error') { eh *= 0.7; }
 
-  for (var i = -60; i <= 60; i += 12) {
-    var y = i + (t % 12);
-    if (y < -55 || y > 50) continue;
+  // Left eye
+  this._eye(ctx, -gap + this.eyeLookX * 2.5, ey + this.eyeLookY * 1.5, ew, eh, c);
+  // Right eye
+  this._eye(ctx, gap + this.eyeLookX * 2.5, ey + this.eyeLookY * 1.5, ew, eh, c);
+};
+
+Aether.Orb.prototype._eye = function(ctx, x, y, w, h, c) {
+  // Eye socket shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.ellipse(x, y, w + 2, h + 2, 0, 0, Math.PI * 2); ctx.fill();
+
+  // Eye white
+  ctx.fillStyle = 'rgba(' + c.p + ',0.12)';
+  ctx.beginPath(); ctx.ellipse(x, y, w, h, 0, 0, Math.PI * 2); ctx.fill();
+
+  // Iris ring
+  var ir = w * 0.4;
+  var grad = ctx.createRadialGradient(x, y - 0.5, 0, x, y, ir);
+  grad.addColorStop(0, 'rgba(' + c.p + ',1)');
+  grad.addColorStop(0.6, 'rgba(' + c.s + ',0.7)');
+  grad.addColorStop(1, 'rgba(' + c.p + ',0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(x, y, ir, 0, Math.PI * 2); ctx.fill();
+
+  // Pupil
+  ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.arc(x + this.eyeLookX * 1.5, y + this.eyeLookY, 1.8, 0, Math.PI * 2); ctx.fill();
+
+  // Specular highlight
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.beginPath(); ctx.arc(x + 1.5, y - 2, 1.2, 0, Math.PI * 2); ctx.fill();
+
+  // Eyelid line (upper)
+  ctx.strokeStyle = 'rgba(' + c.p + ',0.5)';
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  ctx.ellipse(x, y, w, h, 0, Math.PI, 0);
+  ctx.stroke();
+};
+
+Aether.Orb.prototype._nose = function(ctx, c) {
+  var ny = 8;
+  ctx.strokeStyle = 'rgba(' + c.s + ',0.35)';
+  ctx.lineWidth = 0.8;
+
+  // Nose bridge
+  ctx.beginPath();
+  ctx.moveTo(0, -14); ctx.quadraticCurveTo(-1, -4, 0, 8);
+  ctx.stroke();
+
+  // Nostrils
+  ctx.beginPath();
+  ctx.ellipse(-4, 8, 3, 1.8, 0.1, 0, Math.PI, true);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(4, 8, 3, 1.8, -0.1, 0, Math.PI, false);
+  ctx.stroke();
+
+  // Nose tip glow
+  ctx.fillStyle = 'rgba(' + c.p + ',0.06)';
+  ctx.beginPath(); ctx.ellipse(0, 6, 5, 3, 0, 0, Math.PI * 2); ctx.fill();
+};
+
+Aether.Orb.prototype._mouth = function(ctx, c) {
+  var my = 22, open = Math.max(0, this.mouthOpen);
+
+  if (open < 0.03) {
+    // Closed lips
+    ctx.strokeStyle = 'rgba(' + c.p + ',0.7)';
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.moveTo(-40, y);
-    ctx.lineTo(40, y);
+    // Upper lip (cupid's bow)
+    ctx.moveTo(-12, my - 1); ctx.quadraticCurveTo(-4, my - 4, 0, my - 2);
+    ctx.quadraticCurveTo(4, my - 4, 12, my - 1);
     ctx.stroke();
+    // Lower lip
+    ctx.beginPath();
+    ctx.moveTo(-12, my + 1); ctx.quadraticCurveTo(0, my + 4, 12, my + 1);
+    ctx.stroke();
+  } else {
+    // Open mouth
+    var mh = open * 12;
+    var mw = 13 + open * 2;
+
+    // Mouth interior
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.beginPath();
+    ctx.ellipse(0, my + 2, mw, mh, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inner glow
+    var ig = ctx.createRadialGradient(0, my, 0, 0, my + mh * 0.4, mh * 0.7);
+    ig.addColorStop(0, 'rgba(' + c.p + ',0.2)');
+    ig.addColorStop(1, 'transparent');
+    ctx.fillStyle = ig;
+    ctx.beginPath(); ctx.ellipse(0, my + 2, mw * 0.85, mh * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Teeth hint (top)
+    ctx.fillStyle = 'rgba(' + c.p + ',0.15)';
+    ctx.beginPath(); ctx.ellipse(0, my - mh * 0.3, mw * 0.7, mh * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+  }
+};
+
+Aether.Orb.prototype._jawline = function(ctx, c) {
+  ctx.strokeStyle = 'rgba(' + c.s + ',0.25)';
+  ctx.lineWidth = 0.6;
+  ctx.beginPath();
+  ctx.moveTo(-32, 10); ctx.quadraticCurveTo(0, 46, 32, 10);
+  ctx.stroke();
+};
+
+Aether.Orb.prototype._scanLines = function(ctx, c) {
+  var t = this.frame * 0.02;
+  ctx.strokeStyle = 'rgba(' + c.p + ',0.06)';
+  ctx.lineWidth = 0.4;
+
+  for (var i = -65; i <= 65; i += 10) {
+    var y = i + (t % 10);
+    if (y < -55 || y > 55) continue;
+    ctx.beginPath(); ctx.moveTo(-42, y); ctx.lineTo(42, y); ctx.stroke();
   }
 };

@@ -1,5 +1,5 @@
-// Aether — orb.js → Gyroscopic Hologram Sphere
-// Multi-axis spinning rings, glowing core, orbiting particles, state-driven colors
+// Aether — orb.js → JARVIS HUD Orb (matching reference exactly)
+// Outer ring system, thick segmented arcs, ticked rings, 3D particle core, orbital ellipses
 // API unchanged: Aether.Orb(canvasId), setState, pulse
 var Aether = window.Aether || {};
 
@@ -10,16 +10,20 @@ Aether.Orb = function(canvasId) {
   this.frame = 0; this.animId = null;
   this.reactivity = 0; this.targetReactivity = 0;
 
-  // Rings: {angleX, angleY, angleZ, speed, radius, width, alpha, rotationSpeed}
-  this.rings = [];
-  this._initRings();
+  // 3D particle cloud
+  this.coreParticles = [];
+  for (var i = 0; i < 200; i++) this.coreParticles.push(this._newCoreParticle());
 
-  // Orbiting particles
-  this.particles = [];
-  this._initParticles(30);
+  // Orbital nodes on ellipses
+  this.orbitNodes = [];
+  for (var j = 0; j < 24; j++) {
+    this.orbitNodes.push({ angle: Math.random() * Math.PI * 2, orbitIdx: Math.floor(Math.random() * 4), speed: 0.008 + Math.random() * 0.02, size: 1 + Math.random() * 1.5 });
+  }
 
-  // Core pulse
-  this.corePulse = 1;
+  // Rotation angles
+  this.arcAngle = 0;
+  this.innerAngle = 0;
+  this.yRot = 0;
 
   this._resize();
   this._startLoop();
@@ -27,32 +31,11 @@ Aether.Orb = function(canvasId) {
   window.addEventListener('resize', function(){self._resize();});
 };
 
-// ── Init rings (gyroscope layers) ────────────────
-
-Aether.Orb.prototype._initRings = function() {
-  this.rings = [
-    { rx: 0.8, ry: 0.15, rz: 0,   speed: 0.008, r: 0.72, w: 1.5, a: 0.6 },   // horizontal main
-    { rx: 0.15, ry: 0.8, rz: 0,   speed: 0.012, r: 0.68, w: 1.2, a: 0.4 },   // vertical
-    { rx: 0.5,  ry: 0.5, rz: 0.3, speed: 0.01,  r: 0.75, w: 1.0, a: 0.35 },  // diagonal
-    { rx: 0.3,  ry: 0.4, rz: 0.7, speed: 0.014, r: 0.65, w: 0.8, a: 0.3 },   // tilted 1
-    { rx: 0.6,  ry: 0.2, rz: 0.5, speed: 0.009, r: 0.70, w: 0.7, a: 0.25 },  // tilted 2
-  ];
-};
-
-Aether.Orb.prototype._initParticles = function(count) {
-  this.particles = [];
-  for (var i = 0; i < count; i++) {
-    var theta = Math.random() * Math.PI * 2;
-    var phi = Math.random() * Math.PI * 2;
-    var orbitR = 0.55 + Math.random() * 0.35;
-    this.particles.push({
-      theta: theta, phi: phi,
-      orbitR: orbitR,
-      speed: 0.005 + Math.random() * 0.015,
-      size: 0.6 + Math.random() * 1.5,
-      alpha: 0.3 + Math.random() * 0.5
-    });
-  }
+Aether.Orb.prototype._newCoreParticle = function() {
+  return {
+    x: (Math.random() - 0.5) * 2, y: (Math.random() - 0.5) * 2, z: (Math.random() - 0.5) * 2,
+    size: 0.5 + Math.random() * 2.5
+  };
 };
 
 // ── Sizing ────────────────────────────────────────
@@ -64,7 +47,8 @@ Aether.Orb.prototype._resize = function() {
   this.canvas.height = size * dpr;
   this.canvas.style.width = size + 'px';
   this.canvas.style.height = size + 'px';
-  this.size = size; this.R = size / 2 * 0.62;
+  this.size = size;
+  this.R = size / 2 * 0.58; // base ring radius
   this.cx = size / 2; this.cy = size / 2;
 };
 
@@ -77,19 +61,30 @@ Aether.Orb.prototype._startLoop = function() {
 
 Aether.Orb.prototype._update = function() {
   this.reactivity += (this.targetReactivity - this.reactivity) * 0.1;
-  this.corePulse = 1 + Math.sin(this.frame * 0.03) * 0.08 + this.reactivity * 0.15;
+  // Arc shield rotates slowly clockwise
+  this.arcAngle += 0.004;
+  // Inner dashed ring rotates counter-clockwise
+  this.innerAngle -= 0.006;
+  // 3D Y-axis rotation for core
+  this.yRot += 0.01;
 
-  // Rotate rings
-  for (var i = 0; i < this.rings.length; i++) {
-    this.rings[i].rz += this.rings[i].speed;
-    this.rings[i].rx += this.rings[i].speed * 0.4;
+  // Orbit nodes advance
+  for (var i = 0; i < this.orbitNodes.length; i++) {
+    this.orbitNodes[i].angle += this.orbitNodes[i].speed;
   }
 
-  // Orbit particles
-  for (var j = 0; j < this.particles.length; j++) {
-    var p = this.particles[j];
-    p.theta += p.speed;
-    p.phi += p.speed * 0.7;
+  // Regenerate core particles that drift too far
+  for (var j = 0; j < this.coreParticles.length; j++) {
+    var p = this.coreParticles[j];
+    var dist = Math.sqrt(p.x*p.x + p.y*p.y + p.z*p.z);
+    if (dist > 1.05) {
+      var np = this._newCoreParticle();
+      p.x = np.x; p.y = np.y; p.z = np.z; p.size = np.size;
+    }
+    // Slight drift
+    p.x += (Math.random() - 0.5) * 0.004;
+    p.y += (Math.random() - 0.5) * 0.004;
+    p.z += (Math.random() - 0.5) * 0.004;
   }
 };
 
@@ -100,9 +95,9 @@ Aether.Orb.prototype.setState = function(state) {
   this.state = state;
   switch (state) {
     case 'idle': this.targetReactivity = 0; break;
-    case 'listening': this.targetReactivity = 0.7; break;
+    case 'listening': this.targetReactivity = 0.6; break;
     case 'thinking': this.targetReactivity = 0.3; break;
-    case 'speaking': this.targetReactivity = 0.5; break;
+    case 'speaking': this.targetReactivity = 0.4; break;
     case 'error': this.targetReactivity = 0; break;
   }
 };
@@ -114,16 +109,11 @@ Aether.Orb.prototype.pulse = function(intensity) {
 
 // ── Colors ───────────────────────────────────────
 
-Aether.Orb.prototype._c = function() {
-  var r = this.reactivity;
-  switch (this.state) {
-    case 'idle':      return {p:'0,240,255', g:'0,240,255', ga:0.08, inner:'0,240,255', ia:0.25};
-    case 'listening': return {p:'180,255,255', g:'150,240,255', ga:0.15+r*0.1, inner:'255,255,255', ia:0.4+r*0.3};
-    case 'thinking':  return {p:'255,80,255', g:'255,80,255', ga:0.12, inner:'255,120,255', ia:0.3};
-    case 'speaking':  return {p:'0,240,255', g:'0,240,255', ga:0.1, inner:'100,255,255', ia:0.3};
-    case 'error':     return {p:'255,68,102', g:'255,68,102', ga:0.06, inner:'255,80,100', ia:0.2};
-    default:          return {p:'0,240,255', g:'0,240,255', ga:0.08, inner:'0,240,255', ia:0.25};
-  }
+Aether.Orb.prototype._cyan = function(a) { return 'rgba(0,210,255,' + a + ')'; };
+Aether.Orb.prototype._gold = function(a) { return 'rgba(241,196,15,' + a + ')'; };
+Aether.Orb.prototype._white = function(a) { return 'rgba(255,255,255,' + a + ')'; };
+Aether.Orb.prototype._glow = function(ctx, color, blur) {
+  ctx.shadowColor = color; ctx.shadowBlur = blur || 12;
 };
 
 // ═══════════════════════════════════════════════════
@@ -135,120 +125,190 @@ Aether.Orb.prototype._draw = function() {
   ctx.save(); ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, this.size, this.size);
 
-  var c = this._c();
+  var R = this.R;
+  var reaction = this.reactivity * 0.15;
 
-  // Background glow
-  var glow = ctx.createRadialGradient(this.cx, this.cy, this.R * 0.2, this.cx, this.cy, this.R * 1.5);
-  glow.addColorStop(0, 'rgba(' + c.g + ',' + c.ga + ')');
-  glow.addColorStop(1, 'transparent');
-  ctx.fillStyle = glow;
-  ctx.beginPath(); ctx.arc(this.cx, this.cy, this.R * 1.5, 0, Math.PI * 2); ctx.fill();
+  // ── Background radial glow ─────────────────────
+  var bgGlow = ctx.createRadialGradient(this.cx, this.cy, R * 0.3, this.cx, this.cy, R * 1.8);
+  bgGlow.addColorStop(0, 'rgba(0,40,80,0.2)');
+  bgGlow.addColorStop(0.5, 'rgba(0,20,50,0.08)');
+  bgGlow.addColorStop(1, 'transparent');
+  ctx.fillStyle = bgGlow;
+  ctx.beginPath(); ctx.arc(this.cx, this.cy, R * 1.8, 0, Math.PI * 2); ctx.fill();
 
-  // Inner core
-  this._drawCore(ctx, c);
+  // ── Layer 1: Outer dot ring ────────────────────
+  ctx.strokeStyle = this._cyan(0.15 + reaction);
+  ctx.lineWidth = 0.6;
+  ctx.beginPath(); ctx.arc(this.cx, this.cy, R * 1.07, 0, Math.PI * 2); ctx.stroke();
 
-  // Rings (back half — lower z)
-  this._drawRings(ctx, c, -1);
-
-  // Orbiting particles
-  this._drawParticles(ctx, c);
-
-  // Rings (front half — upper z)
-  this._drawRings(ctx, c, 1);
-
-  // Outer glow ring
-  var ringAlpha = 0.04 + Math.sin(this.frame * 0.025) * 0.02 + this.reactivity * 0.05;
-  ctx.strokeStyle = 'rgba(' + c.p + ',' + ringAlpha + ')';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(this.cx, this.cy, this.R * 1.08, 0, Math.PI * 2); ctx.stroke();
-
-  ctx.restore();
-};
-
-// ── Inner glowing core ───────────────────────────
-
-Aether.Orb.prototype._drawCore = function(ctx, c) {
-  var r = this.R * 0.18 * this.corePulse;
-
-  // Outer core glow
-  var outer = ctx.createRadialGradient(this.cx, this.cy, r * 0.4, this.cx, this.cy, r * 2.5);
-  outer.addColorStop(0, 'rgba(' + c.inner + ',' + c.ia + ')');
-  outer.addColorStop(0.5, 'rgba(' + c.p + ',0.1)');
-  outer.addColorStop(1, 'transparent');
-  ctx.fillStyle = outer;
-  ctx.beginPath(); ctx.arc(this.cx, this.cy, r * 2.5, 0, Math.PI * 2); ctx.fill();
-
-  // Bright center
-  var core = ctx.createRadialGradient(this.cx, this.cy, 0, this.cx, this.cy, r);
-  core.addColorStop(0, 'rgba(255,255,255,0.9)');
-  core.addColorStop(0.3, 'rgba(' + c.inner + ',0.6)');
-  core.addColorStop(1, 'rgba(' + c.inner + ',0)');
-  ctx.fillStyle = core;
-  ctx.beginPath(); ctx.arc(this.cx, this.cy, r, 0, Math.PI * 2); ctx.fill();
-};
-
-// ── Gyroscopic rings (3D projected ellipses) ─────
-
-Aether.Orb.prototype._drawRings = function(ctx, c, side) {
-  for (var i = 0; i < this.rings.length; i++) {
-    var ring = this.rings[i];
-
-    // 3D rotation → project to 2D ellipse
-    // Simplified: use sine of rotation to determine tilt
-    var rx = this.R * ring.r;
-    var ry = this.R * ring.r * Math.abs(Math.cos(ring.rz)) * 0.35 + this.R * ring.r * 0.15;
-    var rotation = ring.rz * 2;
-    var tilt = ring.rx * 0.3;
-
-    // Only draw based on z-order (which "side" of sphere the ring is on)
-    var zOrder = Math.sin(ring.rz);
-    if ((side > 0 && zOrder >= -0.1) || (side < 0 && zOrder < -0.1)) {
-      var alpha = ring.a + this.reactivity * 0.15;
-      if (this.state === 'listening') alpha += 0.1;
-
-      ctx.save();
-      ctx.translate(this.cx, this.cy);
-      ctx.rotate(rotation);
-
-      ctx.strokeStyle = 'rgba(' + c.p + ',' + alpha + ')';
-      ctx.lineWidth = ring.w;
-      ctx.shadowColor = 'rgba(' + c.p + ',' + (alpha * 0.5) + ')';
-      ctx.shadowBlur = 3;
-
-      ctx.beginPath();
-      ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-      ctx.restore();
-    }
+  // Dots outside ring
+  for (var d = 0; d < 360; d += 24) {
+    var rad = d * Math.PI / 180;
+    var dx = this.cx + Math.cos(rad) * (R * 1.07 + 4);
+    var dy = this.cy + Math.sin(rad) * (R * 1.07 + 4);
+    ctx.fillStyle = this._cyan(0.25 + reaction);
+    ctx.beginPath(); ctx.arc(dx, dy, 1.2, 0, Math.PI * 2); ctx.fill();
   }
-};
 
-// ── Orbiting particles (3D sphere surface) ───────
+  // ── Layer 2: Thick segmented arcs ──────────────
+  var arcs = [
+    { start: -1.2, end: 0.7 },   // top-right
+    { start: 1.0, end: 3.1 },    // bottom
+    { start: 3.5, end: 4.7 }     // left
+  ];
+  for (var a = 0; a < arcs.length; a++) {
+    var arc = arcs[a];
+    var s = arc.start + this.arcAngle;
+    var e = arc.end + this.arcAngle;
 
-Aether.Orb.prototype._drawParticles = function(ctx, c) {
-  for (var i = 0; i < this.particles.length; i++) {
-    var p = this.particles[i];
+    ctx.save();
+    // Dark fill with bright midline stroke
+    ctx.strokeStyle = this._cyan(0.45 + reaction);
+    ctx.lineWidth = 4;
+    this._glow(ctx, 'rgba(0,210,255,0.5)', 6);
+    ctx.beginPath(); ctx.arc(this.cx, this.cy, R * 0.98, s, e); ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
 
-    // Spherical to Cartesian (simplified projection)
-    var x3 = Math.sin(p.phi) * Math.cos(p.theta);
-    var y3 = Math.sin(p.phi) * Math.sin(p.theta);
-    var z3 = Math.cos(p.phi);
+  // Gold accent arc on bottom-left
+  ctx.save();
+  ctx.strokeStyle = this._gold(0.7);
+  ctx.lineWidth = 1.5;
+  this._glow(ctx, 'rgba(241,196,15,0.4)', 4);
+  ctx.beginPath();
+  ctx.arc(this.cx, this.cy, R * 0.88, 2.2 + this.arcAngle, 2.9 + this.arcAngle);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.restore();
 
-    // Perspective projection: z affects scale and alpha
-    var scale = (z3 + 1.5) / 2.5; // 0.6 to 1.0
-    var alpha = p.alpha * scale * (0.6 + this.reactivity * 0.4);
-    var r = this.R * p.orbitR;
+  // ── Layer 3: Fine concentric rings ─────────────
+  // Thin continuous
+  ctx.strokeStyle = this._cyan(0.3);
+  ctx.lineWidth = 0.7;
+  ctx.beginPath(); ctx.arc(this.cx, this.cy, R * 0.85, 0, Math.PI * 2); ctx.stroke();
 
-    var px = this.cx + x3 * r;
-    var py = this.cy + y3 * r;
+  // Dashed ring (counter-rotating)
+  ctx.save();
+  ctx.setLineDash([8, 6]);
+  ctx.lineDashOffset = -this.innerAngle * R; // creates rotation effect
+  ctx.strokeStyle = this._cyan(0.25);
+  ctx.lineWidth = 0.6;
+  ctx.beginPath(); ctx.arc(this.cx, this.cy, R * 0.80, 0, Math.PI * 2); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
 
-    ctx.fillStyle = 'rgba(' + c.p + ',' + alpha + ')';
-    ctx.shadowColor = 'rgba(' + c.p + ',' + (alpha * 0.5) + ')';
-    ctx.shadowBlur = 2;
+  // Ticked ring
+  ctx.strokeStyle = this._cyan(0.2);
+  ctx.lineWidth = 0.5;
+  for (var t = 0; t < 360; t += 5) {
+    var trad = (t + this.innerAngle * 30) * Math.PI / 180;
+    var tOuter = R * 0.765;
+    var tInner = R * 0.745;
     ctx.beginPath();
-    ctx.arc(px, py, p.size * scale, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(this.cx + Math.cos(trad) * tOuter, this.cy + Math.sin(trad) * tOuter);
+    ctx.lineTo(this.cx + Math.cos(trad) * tInner, this.cy + Math.sin(trad) * tInner);
+    ctx.stroke();
+  }
+
+  // ── Layer 4: Inner core border ─────────────────
+  var coreR = R * 0.5;
+  ctx.strokeStyle = this._cyan(0.35);
+  ctx.lineWidth = 1.2;
+  this._glow(ctx, 'rgba(0,210,255,0.3)', 8);
+  ctx.beginPath(); ctx.arc(this.cx, this.cy, coreR, 0, Math.PI * 2); ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Screw nodes on border
+  var screwPositions = [-0.3, 2.0, 3.8, 4.7, 5.2];
+  for (var sn = 0; sn < screwPositions.length; sn++) {
+    var sx = this.cx + Math.cos(screwPositions[sn]) * coreR;
+    var sy = this.cy + Math.sin(screwPositions[sn]) * coreR;
+    ctx.fillStyle = 'rgba(0,20,40,0.8)';
+    ctx.beginPath(); ctx.arc(sx, sy, 2.5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = this._cyan(0.4);
+    ctx.lineWidth = 0.6;
+    ctx.beginPath(); ctx.arc(sx, sy, 2.5, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  // ── 3D Particle Core ───────────────────────────
+  var cosY = Math.cos(this.yRot), sinY = Math.sin(this.yRot);
+  for (var pi = 0; pi < this.coreParticles.length; pi++) {
+    var p = this.coreParticles[pi];
+
+    // Y-rotation
+    var rx = p.x * cosY - p.z * sinY;
+    var rz = p.x * sinY + p.z * cosY;
+    var ry = p.y;
+
+    // Project: z-depth affects alpha and scale
+    var depth = (rz + 1) / 2; // 0 (back) to 1 (front)
+    var px = this.cx + rx * coreR * 0.9;
+    var py = this.cy + ry * coreR * 0.9;
+    var alpha = depth * (0.3 + this.reactivity * 0.4);
+    var sz = p.size * (0.5 + depth * 0.5);
+
+    ctx.fillStyle = 'rgba(160,240,255,' + alpha + ')';
+    ctx.beginPath(); ctx.arc(px, py, sz, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ── Orbital Ellipses ───────────────────────────
+  var orbits = [
+    { tilt: 0.6, rx: coreR*0.85, ry: coreR*0.2 },  // ~35 deg
+    { tilt: -0.6, rx: coreR*0.85, ry: coreR*0.2 }, // ~-35 deg
+    { tilt: 1.4, rx: coreR*0.85, ry: coreR*0.15 }, // ~80 deg (near-vertical)
+    { tilt: 0.17, rx: coreR*0.88, ry: coreR*0.35 }  // ~10 deg (near-horizontal)
+  ];
+
+  for (var oi = 0; oi < orbits.length; oi++) {
+    var orb = orbits[oi];
+    ctx.save();
+    ctx.translate(this.cx, this.cy);
+    ctx.rotate(orb.tilt + this.yRot * 0.5); // subtle wobble
+
+    var alpha = 0.15 + reaction;
+    ctx.strokeStyle = 'rgba(160,240,255,' + alpha + ')';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.ellipse(0, 0, orb.rx, orb.ry, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+
+  // ── Orbital Nodes (bright dots on ellipses) ────
+  for (var oni = 0; oni < this.orbitNodes.length; oni++) {
+    var node = this.orbitNodes[oni];
+    var ob = orbits[node.orbitIdx];
+    ctx.save();
+    ctx.translate(this.cx, this.cy);
+    ctx.rotate(ob.tilt + this.yRot * 0.5);
+    var nx = Math.cos(node.angle) * ob.rx;
+    var ny = Math.sin(node.angle) * ob.ry;
+    ctx.fillStyle = this._white(0.6 + reaction * 0.3);
+    this._glow(ctx, 'rgba(160,240,255,0.6)', 3);
+    ctx.beginPath(); ctx.arc(nx, ny, node.size, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  // ── Central Fusion Glow ─────────────────────────
+  var pulse = 1 + Math.sin(this.frame * 0.03) * 0.05 + this.reactivity * 0.1;
+  var cg = ctx.createRadialGradient(this.cx, this.cy, 0, this.cx, this.cy, coreR * 0.7 * pulse);
+  cg.addColorStop(0, 'rgba(255,255,255,1)');
+  cg.addColorStop(0.15, 'rgba(0,210,255,0.8)');
+  cg.addColorStop(0.4, 'rgba(0,100,150,0.25)');
+  cg.addColorStop(0.8, 'rgba(0,40,80,0.05)');
+  cg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = cg;
+  ctx.beginPath(); ctx.arc(this.cx, this.cy, coreR * 0.7 * pulse, 0, Math.PI * 2); ctx.fill();
+
+  // ── State accent (speaking/listening) ───────────
+  if (this.state === 'listening' || this.state === 'speaking') {
+    var accAlpha = 0.12 + this.reactivity * 0.15;
+    ctx.strokeStyle = this._white(accAlpha);
+    ctx.lineWidth = 2;
+    this._glow(ctx, 'rgba(255,255,255,0.4)', 15);
+    ctx.beginPath(); ctx.arc(this.cx, this.cy, R * 1.05, 0, Math.PI * 2); ctx.stroke();
     ctx.shadowBlur = 0;
   }
+
+  ctx.restore();
 };

@@ -354,6 +354,19 @@ Aether.SpeechOutput.prototype._speakGemini = function(text) {
   var sentences = this._splitSentences(text);
   if (sentences.length === 0) { this.isSpeaking = false; if (this.onEnd) this.onEnd(); return; }
 
+  // Group sentences into chunks for fewer API calls and smoother flow
+  var chunks = [];
+  var current = '';
+  for (var i = 0; i < sentences.length; i++) {
+    if (current && (current + ' ' + sentences[i]).length > 300) {
+      chunks.push(current);
+      current = sentences[i];
+    } else {
+      current = current ? current + ' ' + sentences[i] : sentences[i];
+    }
+  }
+  if (current) chunks.push(current);
+
   this.isSpeaking = true;
   if (this.onStart) this.onStart();
 
@@ -361,21 +374,20 @@ Aether.SpeechOutput.prototype._speakGemini = function(text) {
   var idx = 0;
 
   function speakNext() {
-    if (idx >= sentences.length) {
+    if (idx >= chunks.length) {
       self.isSpeaking = false;
       if (self.onEnd) self.onEnd();
       return;
     }
 
-    var sentence = sentences[idx];
+    var chunk = chunks[idx];
     var lang = (Aether.SETTINGS.ttsLang && Aether.SETTINGS.ttsLang !== 'auto')
       ? Aether.SETTINGS.ttsLang
       : (Aether.SETTINGS.lang === 'th' ? 'th' : 'en');
 
-    // Build language-specific prompt for natural pronunciation
     var voicePrompt = lang === 'th'
-      ? 'พูดด้วยน้ำเสียงธรรมชาติแบบคนไทย: ' + sentence
-      : 'Speak naturally in English: ' + sentence;
+      ? 'พูดต่อเนื่องเป็นธรรมชาติแบบคนไทย: ' + chunk
+      : 'Speak continuously and naturally: ' + chunk;
 
     fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=' + apiKey, {
       method: 'POST',
@@ -416,19 +428,19 @@ Aether.SpeechOutput.prototype._speakGemini = function(text) {
         URL.revokeObjectURL(url);
         self.currentAudio = null;
         idx++;
-        setTimeout(speakNext, 150);
+        setTimeout(speakNext, 30);
       };
       audio.onerror = function() {
         URL.revokeObjectURL(url);
         self.currentAudio = null;
         idx++;
-        setTimeout(speakNext, 100);
+        setTimeout(speakNext, 30);
       };
       audio.play().catch(function() {
         URL.revokeObjectURL(url);
         self.currentAudio = null;
         idx++;
-        setTimeout(speakNext, 100);
+        setTimeout(speakNext, 30);
       });
     })
     .catch(function(err) {

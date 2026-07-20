@@ -22,9 +22,9 @@ Aether.Orb = function(canvasId) {
 
   // Landmarks (% of 1024x1024 image)
   this.lm = {
-    leftEye:{x:0.366,y:0.460}, rightEye:{x:0.634,y:0.460},
-    mouth:{x:0.500,y:0.758}, mouthW:0.22,
-    faceC:{x:0.500,y:0.515}, faceW:0.64, nose:{x:0.500,y:0.592}
+    leftEye:{x:0.316,y:0.320}, rightEye:{x:0.676,y:0.320},
+    mouth:{x:0.496,y:0.708}, mouthW:0.283,
+    faceC:{x:0.496,y:0.460}, faceW:0.74, nose:{x:0.496,y:0.500}
   };
 
   // Effects state
@@ -255,37 +255,38 @@ Aether.Orb.prototype._drawMouthComposite = function(ctx, c, open) {
   var mh = open * 16;
   var mww = mw * 0.45 * (1 + open * 0.25);
 
-  // Dark cavity (erases the closed mouth from photo)
+  // Dark cavity (mechanical interior — robot)
   var cavGrad = ctx.createRadialGradient(mo.x, mo.y, 0, mo.x, mo.y + mh * 0.3, mh);
-  cavGrad.addColorStop(0, 'rgba(5,2,8,0.95)');
-  cavGrad.addColorStop(0.5, 'rgba(10,5,15,0.85)');
+  cavGrad.addColorStop(0, 'rgba(2,4,10,0.95)');
+  cavGrad.addColorStop(0.5, 'rgba(5,8,20,0.85)');
   cavGrad.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = cavGrad;
   ctx.beginPath();
   ctx.ellipse(mo.x, mo.y + 1, mww, mh, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Teeth (upper)
+  // Internal mechanical glow (wires/servos)
   if (open > 0.15) {
-    ctx.fillStyle = 'rgba(200,210,220,0.4)';
+    ctx.fillStyle = 'rgba(' + c.p + ',0.15)';
     ctx.beginPath();
-    ctx.ellipse(mo.x, mo.y - mh * 0.35, mww * 0.7, mh * 0.18, 0, 0, Math.PI * 2);
+    ctx.ellipse(mo.x, mo.y - mh * 0.3, mww * 0.6, mh * 0.25, 0, 0, Math.PI * 2);
     ctx.fill();
-    // Teeth (lower) — visible when wider
-    if (open > 0.4) {
-      ctx.fillStyle = 'rgba(180,190,200,0.3)';
-      ctx.beginPath();
-      ctx.ellipse(mo.x, mo.y + mh * 0.25, mww * 0.6, mh * 0.12, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
   }
-
-  // Tongue hint (deep open)
-  if (open > 0.5) {
-    ctx.fillStyle = 'rgba(180,80,100,0.35)';
+  if (open > 0.4) {
+    // Lower internal glow
+    ctx.fillStyle = 'rgba(' + c.p + ',0.1)';
     ctx.beginPath();
-    ctx.ellipse(mo.x, mo.y + mh * 0.35, mww * 0.4, mh * 0.2, 0, 0, Math.PI * 2);
+    ctx.ellipse(mo.x, mo.y + mh * 0.3, mww * 0.5, mh * 0.2, 0, 0, Math.PI * 2);
     ctx.fill();
+    // Vertical wire lines
+    ctx.strokeStyle = 'rgba(' + c.p + ',0.25)';
+    ctx.lineWidth = 0.5;
+    for (var j = -2; j <= 2; j++) {
+      ctx.beginPath();
+      ctx.moveTo(mo.x + j * 3, mo.y - mh * 0.6);
+      ctx.lineTo(mo.x + j * 2.5, mo.y + mh * 0.5);
+      ctx.stroke();
+    }
   }
 
   // Lip highlights around mouth opening

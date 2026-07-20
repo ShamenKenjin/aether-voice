@@ -229,8 +229,9 @@ Aether.UI.prototype._updateStats = function(messages) {
   if (el) el.textContent = this._formatDuration((Date.now() - this.sessionStart) / 1000);
 
   // Token stats from LLM
-  if (AetherApp && AetherApp.llm) {
-    var u = AetherApp.llm.tokenUsage;
+  var app = window.AetherApp;
+  if (app && app.llm) {
+    var u = app.llm.tokenUsage;
     el = document.getElementById('stat-tokens-in');
     if (el) el.textContent = u.input.toLocaleString();
     el = document.getElementById('stat-tokens-out');
@@ -238,12 +239,10 @@ Aether.UI.prototype._updateStats = function(messages) {
     el = document.getElementById('stat-cost');
     if (el) el.textContent = '$' + u.cost.toFixed(4);
 
-    // Token bar
     var total = u.input + u.output;
     el = document.getElementById('stat-bar-tokens');
     if (el) el.style.width = Math.min(100, (total / 10000) * 100) + '%';
 
-    // Response time
     el = document.getElementById('stat-resptime');
     if (el) el.textContent = this.lastResponseTime ? (this.lastResponseTime / 1000).toFixed(2) + 's' : '--';
   }
@@ -281,7 +280,8 @@ Aether.UI.prototype._formatDuration = function(sec) {
 // ── Token counter (called from app.js) ────────────
 
 Aether.UI.prototype.updateTokenCounter = function() {
-  this._updateStats(AetherApp ? AetherApp.conversation.messages : []);
+  var app = window.AetherApp;
+  this._updateStats(app ? app.conversation.messages : []);
 };
 
 Aether.UI.prototype.setLastResponseTime = function(ms) {
@@ -499,20 +499,21 @@ Aether.UI._editMessage = function(btn) {
 
   function submitEdit() {
     var newText = input.value.trim();
+    var app = window.AetherApp;
     if (!newText || newText === originalText) {
-      contentEl.innerHTML = AetherApp.ui._renderMarkdown(AetherApp.ui._escapeHtml(originalText));
+      contentEl.innerHTML = app.ui._renderMarkdown(app.ui._escapeHtml(originalText));
       return;
     }
-    if (AetherApp && AetherApp._branchConversation) AetherApp._branchConversation(msgId, newText);
+    if (app && app._branchConversation) app._branchConversation(msgId, newText);
   }
   input.addEventListener('keydown', function(e) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitEdit(); }
-    if (e.key === 'Escape') contentEl.innerHTML = AetherApp.ui._renderMarkdown(AetherApp.ui._escapeHtml(originalText));
+    if (e.key === 'Escape') contentEl.innerHTML = window.AetherApp.ui._renderMarkdown(window.AetherApp.ui._escapeHtml(originalText));
   });
   input.addEventListener('blur', function() {
     setTimeout(function() {
       if (contentEl.querySelector('.msg-edit-input'))
-        contentEl.innerHTML = AetherApp.ui._renderMarkdown(AetherApp.ui._escapeHtml(originalText));
+        contentEl.innerHTML = window.AetherApp.ui._renderMarkdown(window.AetherApp.ui._escapeHtml(originalText));
     }, 200);
   });
 };

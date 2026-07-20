@@ -145,6 +145,11 @@ Aether.App.prototype._wireUI = function() {
     self._clearConversation();
   };
 
+  // New chat (from right panel or wherever)
+  this.ui.onNewChat = function() {
+    self._clearConversation();
+  };
+
   // Text input — same pipeline as voice
   this.ui.onTextSend = function(text) {
     self._onUserSpeech(text);

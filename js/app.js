@@ -292,6 +292,7 @@ Aether.App.prototype._sendToLLM = function(promptText, assistantMsg) {
 
       if (self.sfx) self.sfx.receiveChime();
       self._speakResponse(fullContent);
+      self.ui.updateTokenCounter();
     },
     onError: function(error) {
       assistantMsg.content = error;
@@ -301,6 +302,7 @@ Aether.App.prototype._sendToLLM = function(promptText, assistantMsg) {
       self.setState('error');
       self.ui.showError(error);
       if (self.sfx) self.sfx.errorBuzz();
+      self.ui.updateTokenCounter();
     }
   });
 };
@@ -429,6 +431,67 @@ Aether.App.prototype._loadConversation = function(id) {
   } catch(e) {
     this.ui.showError('Failed to load conversation');
   }
+};
+
+Aether.App.prototype._branchConversation = function(msgId, newText) {
+  // Find the message index
+  var idx = -1;
+  for (var i = 0; i < this.conversation.messages.length; i++) {
+    if (this.conversation.messages[i].id === msgId) { idx = i; break; }
+  }
+  if (idx === -1 || this.conversation.messages[idx].role !== 'user') return;
+
+  // Update user message
+  this.conversation.messages[idx].content = newText;
+  this.conversation.messages[idx].status = 'complete';
+
+  // Truncate all messages after this one
+  this.conversation.messages = this.conversation.messages.slice(0, idx + 1);
+  this.conversation._save();
+  this.ui.renderMessages(this.conversation.messages);
+
+  // Re-send to LLM
+  var self = this;
+  this.setState('thinking');
+
+  var assistantMsg = this.conversation.addMessage('assistant', '', 'streaming');
+  this.ui.renderMessages(this.conversation.messages);
+
+  if (this.sfx) this.sfx.sendWhoosh();
+
+  var messages = this.conversation.getMessagesForLLM();
+  var sendMessages = messages.slice(0, -1);
+
+  this.llm.send(sendMessages, {
+    streaming: Aether.SETTINGS.streamingEnabled,
+    onToken: function(token, fullContent) {
+      assistantMsg.content = fullContent;
+      assistantMsg.status = 'streaming';
+      self.ui.renderMessages(self.conversation.messages);
+      if (self.orb && self.state === 'thinking') {
+        self.orb.pulse(0.3 + Math.random() * 0.3);
+      }
+    },
+    onComplete: function(fullContent) {
+      assistantMsg.content = fullContent;
+      assistantMsg.status = 'complete';
+      self.conversation._save();
+      self.ui.renderMessages(self.conversation.messages);
+      self.ui.updateTokenCounter();
+      if (self.sfx) self.sfx.receiveChime();
+      self._speakResponse(fullContent);
+    },
+    onError: function(error) {
+      assistantMsg.content = error;
+      assistantMsg.status = 'error';
+      self.conversation._save();
+      self.ui.renderMessages(self.conversation.messages);
+      self.ui.updateTokenCounter();
+      self.setState('error');
+      self.ui.showError(error);
+      if (self.sfx) self.sfx.errorBuzz();
+    }
+  });
 };
 
 // ── Bootstrap ────────────────────────────────────

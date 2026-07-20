@@ -129,6 +129,25 @@ body::before {
 .msg-copy-btn:hover { opacity:1 !important; border-color:var(--aether-cyan); color:var(--aether-cyan); }
 .msg-copy-btn.copied { color:var(--aether-green); border-color:var(--aether-green); opacity:1 !important; }
 
+/* Edit button on user messages */
+.msg-edit-btn {
+  position:absolute; top:4px; right:34px;
+  background:rgba(0,0,0,0.3); border:1px solid transparent;
+  color:var(--aether-textDim); width:26px; height:26px;
+  border-radius:6px; display:none; align-items:center; justify-content:center;
+  cursor:pointer; padding:0;
+}
+.chat-msg.user:hover .msg-edit-btn { display:flex; }
+.msg-edit-btn:hover { border-color:var(--aether-gold); color:var(--aether-gold) !important; }
+
+/* Edit input overlay on bubble */
+.msg-edit-input {
+  width:100%; padding:6px 10px; margin-top:4px;
+  background:rgba(0,0,0,0.5); border:1px solid var(--aether-gold);
+  border-radius:8px; color:var(--aether-text); font-size:0.88rem;
+  font-family:inherit; outline:none; resize:vertical;
+}
+
 /* Markdown — inline code */
 .msg-content code {
   background:rgba(0,240,255,0.1); color:var(--aether-cyan);
@@ -382,6 +401,10 @@ body::before {
   flex-shrink:0; display:flex; align-items:center; gap:8px;
   padding:8px 1rem 12px;
   background:linear-gradient(transparent, var(--aether-bg) 40%);
+}
+.token-counter {
+  font-size:0.65rem; color:var(--aether-textDim); white-space:nowrap;
+  opacity:0.5; min-width:80px; text-align:right;
 }
 .input-wrapper {
   flex:1; position:relative; display:flex; flex-direction:column;

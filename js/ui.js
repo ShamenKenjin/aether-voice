@@ -174,6 +174,9 @@ Aether.UI.prototype._createBubble = function(msg) {
     '<div class="msg-role">' + roleName + '</div>' +
     '<div class="msg-content">' + this._renderMarkdown(this._escapeHtml(msg.content)) + '</div>' +
     '<div class="typing-dots"><span></span><span></span><span></span></div>' +
+    '<button class="msg-edit-btn" title="Edit" onclick="Aether.UI._editMessage(this)">' +
+      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>' +
+    '</button>' +
     '<button class="msg-copy-btn" title="Copy" onclick="Aether.UI._copyMessage(this)">' +
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>' +
     '</button>';
@@ -351,6 +354,7 @@ Aether.UI.prototype._populateSettings = function() {
   document.getElementById('set-lang').value = s.lang;
   document.getElementById('set-theme').value = s.theme;
   document.getElementById('set-voice').value = s.voiceName;
+  document.getElementById('set-provider').value = s.llmProvider || 'deepseek';
   document.getElementById('set-rate').value = s.voiceRate;
   document.getElementById('rate-value').textContent = s.voiceRate + 'x';
   document.getElementById('set-pitch').value = s.voicePitch;
@@ -368,6 +372,7 @@ Aether.UI.prototype._saveSettings = function() {
   s.lang = document.getElementById('set-lang').value;
   s.theme = document.getElementById('set-theme').value;
   s.voiceName = document.getElementById('set-voice').value;
+  s.llmProvider = document.getElementById('set-provider').value;
   s.voiceRate = parseFloat(document.getElementById('set-rate').value);
   s.voicePitch = parseFloat(document.getElementById('set-pitch').value);
   s.apiKey = document.getElementById('set-apikey').value.trim();
@@ -432,6 +437,7 @@ Aether.UI.prototype._updateTexts = function() {
   // Settings labels
   var labels = {
     'set-lang': 'lang', 'set-theme': 'theme', 'set-voice': 'voice',
+    'set-provider': 'llmProvider',
     'set-rate': 'voiceRate', 'set-pitch': 'voicePitch', 'set-apikey': 'apiKey',
     'set-gemini-key': 'geminiKey', 'set-prompt': 'systemPrompt'
   };
@@ -518,7 +524,6 @@ Aether.UI._copyMessage = function(btn) {
       setTimeout(function() { btn.classList.remove('copied'); }, 1500);
     });
   } else {
-    // Fallback
     var ta = document.createElement('textarea');
     ta.value = text;
     ta.style.position = 'fixed'; ta.style.opacity = '0';
@@ -529,6 +534,69 @@ Aether.UI._copyMessage = function(btn) {
     btn.classList.add('copied');
     setTimeout(function() { btn.classList.remove('copied'); }, 1500);
   }
+};
+
+// ── Edit Message (static, conversation branching) ──
+
+Aether.UI._editMessage = function(btn) {
+  var bubble = btn.closest('.chat-msg');
+  if (!bubble) return;
+
+  var contentEl = bubble.querySelector('.msg-content');
+  if (!contentEl) return;
+
+  var originalText = contentEl.textContent || '';
+  var msgId = bubble.dataset.id;
+
+  // Replace content with editable textarea
+  contentEl.innerHTML = '';
+  var input = document.createElement('textarea');
+  input.className = 'msg-edit-input';
+  input.value = originalText;
+  input.rows = Math.min(6, Math.max(2, Math.ceil(originalText.length / 50)));
+  contentEl.appendChild(input);
+  input.focus();
+
+  function submitEdit() {
+    var newText = input.value.trim();
+    if (!newText || newText === originalText) {
+      // Cancel — restore original
+      contentEl.innerHTML = AetherApp.ui._renderMarkdown(AetherApp.ui._escapeHtml(originalText));
+      return;
+    }
+    // Tell app to branch
+    if (AetherApp && AetherApp._branchConversation) {
+      AetherApp._branchConversation(msgId, newText);
+    }
+  }
+
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      submitEdit();
+    }
+    if (e.key === 'Escape') {
+      contentEl.innerHTML = AetherApp.ui._renderMarkdown(AetherApp.ui._escapeHtml(originalText));
+    }
+  });
+  input.addEventListener('blur', function() {
+    // Slight delay to allow Enter/button clicks
+    setTimeout(function() {
+      if (contentEl.querySelector('.msg-edit-input')) {
+        contentEl.innerHTML = AetherApp.ui._renderMarkdown(AetherApp.ui._escapeHtml(originalText));
+      }
+    }, 200);
+  });
+};
+
+// ── Token Counter Refresh ─────────────────────────
+
+Aether.UI.prototype.updateTokenCounter = function() {
+  var el = document.getElementById('token-counter');
+  if (!el || !AetherApp) return;
+  var u = AetherApp.llm ? AetherApp.llm.tokenUsage : { input: 0, output: 0, cost: 0 };
+  var total = u.input + u.output;
+  el.textContent = total.toLocaleString() + ' tokens · $' + u.cost.toFixed(4);
 };
 
 // ── Helpers ──────────────────────────────────────

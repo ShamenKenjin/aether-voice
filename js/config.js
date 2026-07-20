@@ -4,13 +4,31 @@ var Aether = window.Aether || {};
 
 // ── API Configuration ────────────────────────────
 
-Aether.API = {
-  provider: 'deepseek',
-  endpoint: 'https://api.deepseek.com/v1/chat/completions',
-  model: 'deepseek-chat',
-  maxTokens: 2048,
-  temperature: 0.7,
-  topP: 0.9
+Aether.PROVIDERS = {
+  deepseek: {
+    name: 'DeepSeek',
+    endpoint: 'https://api.deepseek.com/v1/chat/completions',
+    model: 'deepseek-chat',
+    apiKeyField: 'apiKey',
+    maxTokens: 2048,
+    temperature: 0.7,
+    topP: 0.9,
+    // Pricing per 1M tokens (input/output)
+    priceInput: 0.27,
+    priceOutput: 1.10
+  },
+  gemini: {
+    name: 'Gemini',
+    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+    model: 'gemini-2.5-flash',
+    apiKeyField: 'geminiKey',
+    maxTokens: 2048,
+    temperature: 0.7,
+    topP: 0.9,
+    // Gemini Flash is free tier (for now)
+    priceInput: 0,
+    priceOutput: 0
+  }
 };
 
 // ── CSS Variables Injection ──────────────────────
@@ -70,6 +88,7 @@ Aether.I18N = {
     controls: { mic: 'กดเพื่อพูด', stop: 'หยุด', settings: 'ตั้งค่า', clear: 'ล้าง', export: 'ส่งออก' },
     settings: {
       title: 'ตั้งค่า', lang: 'ภาษา', theme: 'ธีม', voice: 'เสียง',
+      llmProvider: 'AI Model',
       voiceRate: 'ความเร็วเสียง', voicePitch: 'ระดับเสียง', apiKey: 'API Key (DeepSeek)',
       systemPrompt: 'System Prompt', streaming: 'แสดงผลแบบ streaming', continuous: 'ฟังต่อเนื่อง',
       geminiKey: 'Gemini Vision API Key',
@@ -95,6 +114,7 @@ Aether.I18N = {
     controls: { mic: 'Hold to talk', stop: 'Stop', settings: 'Settings', clear: 'Clear', export: 'Export' },
     settings: {
       title: 'Settings', lang: 'Language', theme: 'Theme', voice: 'Voice',
+      llmProvider: 'AI Model',
       voiceRate: 'Speech Rate', voicePitch: 'Pitch', apiKey: 'API Key (DeepSeek)',
       systemPrompt: 'System Prompt', streaming: 'Streaming response', continuous: 'Continuous listening',
       geminiKey: 'Gemini Vision API Key',
@@ -136,6 +156,7 @@ Aether.DEFAULTS = {
   voicePitch: 1.0,
   apiKey: '',
   geminiKey: '',
+  llmProvider: 'deepseek',
   ttsProvider: 'proxy',  // 'browser' | 'proxy' (Google TTS via Pipeline-Studio server)
   ttsProxyUrl: 'http://localhost:4001/api/tts',
   systemPrompt: 'You are Aether, a brilliant and friendly AI assistant. You speak naturally and concisely. You answer in the same language the user speaks. Keep responses under 3 paragraphs unless asked for detail.',

@@ -10,7 +10,7 @@
 - **Repo**: https://github.com/ShamenKenjin/aether-voice
 - **Live**: https://shamenkenjin.github.io/aether-voice/
 - **Started**: 2026-07-19
-- **Last commit**: 81ff4b5
+- **Last commit**: 0cd98ff
 
 ---
 
@@ -30,25 +30,26 @@
   - [x] PDF text extraction (pdf.js CDN)
   - [x] Markdown rendering in chat bubbles (code blocks, lists, bold, italic)
   - [x] Copy message button per bubble
+- [x] **Phase 7** — UX Polish
+  - [x] Typing indicator dots during LLM streaming
+  - [x] Keyboard shortcuts (Ctrl+Enter send, Ctrl+M mic, Esc close)
+  - [x] Sound effects (send whoosh, receive chime, mic click, error buzz)
+  - [x] Wake word detection ("Hey Aether") — always-listening toggle
+  - [x] Conversation history sidebar (load/delete past conversations)
+  - [x] PWA — service worker + manifest for offline/installable
+- [x] **Phase 8** — Backend/Advanced
+  - [x] Multi-model support (DeepSeek + Gemini toggle in Settings)
+  - [x] Conversation branching (edit user message → re-generate)
+  - [x] Token usage counter + cost tracking
 
 ---
 
 ## 📋 Remaining
 
-### Phase 7 — UX Polish
-- [ ] Wake word detection ("Hey Aether") — always-listening mode
-- [ ] Conversation history sidebar (load/delete past conversations)
-- [ ] PWA — service worker for offline mode, installable icon
-- [ ] Keyboard shortcuts (Ctrl+Enter to send, Ctrl+M for mic)
-- [ ] Sound effects (send whoosh, receive chime)
-- [ ] Typing indicator dots during LLM streaming
-
-### Phase 8 — Backend/Advanced
-- [ ] Public TTS proxy (deploy to free hosting — Render/Fly.io)
-- [ ] Multi-model support (Gemini, OpenAI toggle in settings)
-- [ ] Conversation branching (edit user message → re-generate)
-- [ ] Token usage counter + cost tracking
+### Backlog
 - [ ] User authentication (optional — save conversations to cloud)
+- [ ] Public TTS proxy (deploy to free hosting — Render/Fly.io)
+- [ ] Conversation branching UI polish (save branches, compare)
 
 ---
 

@@ -1,6 +1,6 @@
 // Aether — sw.js
 // Service Worker for offline caching + PWA installability
-var CACHE_NAME = 'aether-v2';
+var CACHE_NAME = 'aether-v3';
 
 var ASSETS = [
   '/aether-voice/',
@@ -45,6 +45,9 @@ self.addEventListener('activate', function(event) {
 // Fetch: cache-first for static assets, network-only for API
 self.addEventListener('fetch', function(event) {
   var url = new URL(event.request.url);
+
+  // Skip non-http(s) requests (chrome-extension://, etc.)
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
   // Skip API calls (let them go to network)
   if (url.pathname.indexOf('/api/') >= 0 ||

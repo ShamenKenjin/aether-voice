@@ -345,11 +345,7 @@ Aether.SpeechOutput.prototype._pcmToWav = function(pcmData, sampleRate) {
 
 Aether.SpeechOutput.prototype._speakGemini = function(text) {
   var apiKey = Aether.SETTINGS.geminiKey;
-  if (!apiKey) {
-    this.isSpeaking = false;
-    if (this.onEnd) this.onEnd();
-    return;
-  }
+  if (!apiKey) { this.isSpeaking = false; if (this.onEnd) this.onEnd(); return; }
 
   var sentences = this._splitSentences(text);
   if (sentences.length === 0) { this.isSpeaking = false; if (this.onEnd) this.onEnd(); return; }
@@ -359,8 +355,7 @@ Aether.SpeechOutput.prototype._speakGemini = function(text) {
   var current = '';
   for (var i = 0; i < sentences.length; i++) {
     if (current && (current + ' ' + sentences[i]).length > 300) {
-      chunks.push(current);
-      current = sentences[i];
+      chunks.push(current); current = sentences[i];
     } else {
       current = current ? current + ' ' + sentences[i] : sentences[i];
     }
@@ -371,59 +366,69 @@ Aether.SpeechOutput.prototype._speakGemini = function(text) {
   if (this.onStart) this.onStart();
 
   var self = this;
-  var idx = 0;
-  var geminiFailed = false;
+  var audioUrls = new Array(chunks.length); // pre-allocated slots
+  var loaded = 0;
+  var playIdx = 0;
+  var playing = false;
 
-  // Pre-fetch first chunk in background while we prepare
-  var prefetchReady = false;
-  if (apiKey && chunks.length > 0) {
-    this._fetchGeminiChunk(chunks[0], apiKey, function(audioUrl) {
-      self._prefetchedFirst = audioUrl;
-      prefetchReady = true;
-    });
+  // Fire ALL chunk fetches in parallel
+  for (var c = 0; c < chunks.length; c++) {
+    (function(idx) {
+      self._fetchGeminiChunk(chunks[idx], apiKey, function(url) {
+        audioUrls[idx] = url;
+        loaded++;
+        // Try to start playing if not started yet
+        if (!playing && audioUrls[0]) tryPlay();
+      });
+    })(c);
   }
 
-  function speakNext() {
-    if (idx >= chunks.length) {
+  function tryPlay() {
+    if (audioUrls[0]) {
+      playing = true;
+      playNext();
+    }
+  }
+
+  function playNext() {
+    if (playIdx >= chunks.length) {
       self.isSpeaking = false;
       if (self.onEnd) self.onEnd();
       return;
     }
 
-    var chunk = chunks[idx];
-
-    // First chunk: wait for pre-fetched Gemini audio
-    if (idx === 0 && apiKey && !geminiFailed) {
-      if (self._prefetchedFirst) {
-        var url = self._prefetchedFirst;
-        self._prefetchedFirst = null;
-        var audio = new Audio();
-        audio.src = url;
-        self.currentAudio = audio;
-        audio.onended = function() { URL.revokeObjectURL(url); self.currentAudio = null; idx++; setTimeout(speakNext, 30); };
-        audio.onerror = function() { URL.revokeObjectURL(url); self.currentAudio = null; idx++; speakNext(); };
-        audio.play().catch(function() { URL.revokeObjectURL(url); self.currentAudio = null; idx++; speakNext(); });
-        return;
-      }
-      // Pre-fetch still loading — check again in 50ms
-      setTimeout(speakNext, 50);
+    var url = audioUrls[playIdx];
+    if (!url) {
+      // This chunk still loading — wait and retry
+      setTimeout(playNext, 30);
       return;
     }
 
-    if (!geminiFailed && apiKey) {
-      self._fetchAndPlayGemini(chunk, apiKey, function() {
-        idx++;
-        setTimeout(speakNext, 30);
-      }, function() {
-        geminiFailed = true;
-        self._speakBrowserChunk(chunk, function() { idx++; speakNext(); });
-      });
-    } else {
-      self._speakBrowserChunk(chunk, function() { idx++; speakNext(); });
-    }
-  }
+    var audio = new Audio();
+    audio.src = url;
+    self.currentAudio = audio;
+    var thisIdx = playIdx;
+    playIdx++;
 
-  speakNext();
+    audio.onended = function() {
+      URL.revokeObjectURL(url);
+      audioUrls[thisIdx] = null;
+      self.currentAudio = null;
+      playNext(); // 0ms gap — next chunk starts immediately
+    };
+    audio.onerror = function() {
+      URL.revokeObjectURL(url);
+      audioUrls[thisIdx] = null;
+      self.currentAudio = null;
+      playNext();
+    };
+    audio.play().catch(function() {
+      URL.revokeObjectURL(url);
+      audioUrls[thisIdx] = null;
+      self.currentAudio = null;
+      playNext();
+    });
+  }
 };
 
 // ── Browser TTS single chunk (fast, 0 latency) ──

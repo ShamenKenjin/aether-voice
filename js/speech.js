@@ -208,7 +208,9 @@ Aether.SpeechOutput.prototype.speak = function(text) {
   text = this._stripEmoji(text);
   if (!text) return;
 
-  if (Aether.SETTINGS.ttsProvider === 'proxy') {
+  if (Aether.SETTINGS.ttsProvider === 'gemini') {
+    this._speakGemini(text);
+  } else if (Aether.SETTINGS.ttsProvider === 'proxy') {
     this._speakProxy(text);
   } else {
     this._speakBrowser(text);
@@ -303,6 +305,142 @@ Aether.SpeechOutput.prototype._fetchAndPlay = function(text, lang, onDone, onErr
     self.currentAudio = null;
     if (onError) onError(e.message);
   });
+};
+
+// ── Gemini TTS (neural, natural voice) ──────────
+
+Aether.SpeechOutput.prototype._pcmToWav = function(pcmData, sampleRate) {
+  // Convert L16 PCM to WAV with proper header
+  var numChannels = 1;
+  var bitsPerSample = 16;
+  var byteRate = sampleRate * numChannels * bitsPerSample / 8;
+  var blockAlign = numChannels * bitsPerSample / 8;
+  var dataSize = pcmData.byteLength;
+  var buffer = new ArrayBuffer(44 + dataSize);
+  var view = new DataView(buffer);
+
+  // RIFF header
+  var writeString = function(offset, str) {
+    for (var i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  };
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitsPerSample, true);
+  writeString(36, 'data');
+  view.setUint32(40, dataSize, true);
+
+  var pcmView = new Uint8Array(pcmData);
+  var outView = new Uint8Array(buffer);
+  outView.set(pcmView, 44);
+  return buffer;
+};
+
+Aether.SpeechOutput.prototype._speakGemini = function(text) {
+  var apiKey = Aether.SETTINGS.geminiKey;
+  if (!apiKey) {
+    this.isSpeaking = false;
+    if (this.onEnd) this.onEnd();
+    return;
+  }
+
+  var sentences = this._splitSentences(text);
+  if (sentences.length === 0) { this.isSpeaking = false; if (this.onEnd) this.onEnd(); return; }
+
+  this.isSpeaking = true;
+  if (this.onStart) this.onStart();
+
+  var self = this;
+  var idx = 0;
+
+  function speakNext() {
+    if (idx >= sentences.length) {
+      self.isSpeaking = false;
+      if (self.onEnd) self.onEnd();
+      return;
+    }
+
+    var sentence = sentences[idx];
+    var lang = (Aether.SETTINGS.ttsLang && Aether.SETTINGS.ttsLang !== 'auto')
+      ? Aether.SETTINGS.ttsLang
+      : (Aether.SETTINGS.lang === 'th' ? 'th' : 'en');
+
+    // Build language-specific prompt for natural pronunciation
+    var voicePrompt = lang === 'th'
+      ? 'พูดด้วยน้ำเสียงธรรมชาติแบบคนไทย: ' + sentence
+      : 'Speak naturally in English: ' + sentence;
+
+    fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=' + apiKey, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: voicePrompt }] }],
+        generationConfig: { responseModalities: ['AUDIO'] }
+      })
+    })
+    .then(function(res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
+    .then(function(data) {
+      var audioData = null;
+      for (var c = 0; c < (data.candidates || []).length; c++) {
+        for (var p = 0; p < (data.candidates[c].content?.parts || []).length; p++) {
+          var part = data.candidates[c].content.parts[p];
+          if (part.inlineData && part.inlineData.data) {
+            audioData = part.inlineData.data;
+          }
+        }
+      }
+      if (!audioData) throw new Error('No audio in response');
+
+      // Decode base64 PCM → WAV
+      var binaryStr = atob(audioData);
+      var pcmBytes = new Uint8Array(binaryStr.length);
+      for (var i = 0; i < binaryStr.length; i++) pcmBytes[i] = binaryStr.charCodeAt(i);
+      var wavBuffer = self._pcmToWav(pcmBytes.buffer, 24000);
+      var blob = new Blob([wavBuffer], { type: 'audio/wav' });
+      var url = URL.createObjectURL(blob);
+
+      var audio = new Audio();
+      audio.src = url;
+      self.currentAudio = audio;
+      audio.onended = function() {
+        URL.revokeObjectURL(url);
+        self.currentAudio = null;
+        idx++;
+        setTimeout(speakNext, 150);
+      };
+      audio.onerror = function() {
+        URL.revokeObjectURL(url);
+        self.currentAudio = null;
+        idx++;
+        setTimeout(speakNext, 100);
+      };
+      audio.play().catch(function() {
+        URL.revokeObjectURL(url);
+        self.currentAudio = null;
+        idx++;
+        setTimeout(speakNext, 100);
+      });
+    })
+    .catch(function(err) {
+      console.warn('Gemini TTS error:', err.message);
+      // Fallback to browser TTS
+      self.isSpeaking = false;
+      if (self.currentAudio) { self.currentAudio.pause(); self.currentAudio = null; }
+      self._speakBrowser(text);
+    });
+  }
+
+  speakNext();
 };
 
 // ── Browser TTS (SpeechSynthesis) ────────────────

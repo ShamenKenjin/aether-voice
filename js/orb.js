@@ -1,29 +1,34 @@
-// Aether — orb.js
-// Canvas-based animated AI orb with 5 states
+// Aether — orb.js → Sci-fi AI Face
+// Canvas-based holographic humanoid face with 5 expression states
+// Reuses same API as old orb: setState, pulse — zero changes needed in app.js/ui.js
 var Aether = window.Aether || {};
 
 Aether.Orb = function(canvasId) {
   this.canvas = document.getElementById(canvasId);
   this.ctx = this.canvas.getContext('2d');
-  this.state = 'idle'; // idle | listening | thinking | speaking | error
+  this.state = 'idle';
   this.frame = 0;
   this.animId = null;
 
-  // Configuration
-  this.particles = [];
-  this.particleCount = 18;
-  this.rings = [];
-  this.waves = [];
-
-  // Reactivity (fake audio levels for listening state)
+  // Reactivity / mouth-open target
   this.reactivity = 0;
   this.targetReactivity = 0;
+  this.mouthOpen = 0;
+  this.mouthTarget = 0;
+
+  // Eye tracking
+  this.eyeLookX = 0;
+  this.eyeLookY = 0;
+  this.eyeLookTargetX = 0;
+  this.eyeLookTargetY = 0;
+
+  // Blink
+  this.blinkTimer = 80 + Math.random() * 120;
+  this.blinking = 0;
 
   this._resize();
-  this._initParticles();
   this._startLoop();
 
-  // Resize observer (canvas auto-sizing)
   var self = this;
   window.addEventListener('resize', function() { self._resize(); });
 };
@@ -41,23 +46,6 @@ Aether.Orb.prototype._resize = function() {
   this.size = size;
   this.cx = size / 2;
   this.cy = size / 2;
-  this.radius = size * 0.18;
-};
-
-// ── Particles ────────────────────────────────────
-
-Aether.Orb.prototype._initParticles = function() {
-  this.particles = [];
-  for (var i = 0; i < this.particleCount; i++) {
-    this.particles.push({
-      angle: (Math.PI * 2 * i) / this.particleCount + Math.random() * 0.5,
-      orbit: this.radius * (1.6 + Math.random() * 1.2),
-      speed: 0.003 + Math.random() * 0.006,
-      size: 1 + Math.random() * 2,
-      alpha: 0.3 + Math.random() * 0.5,
-      offset: Math.random() * Math.PI * 2
-    });
-  }
 };
 
 // ── Animation Loop ───────────────────────────────
@@ -75,24 +63,31 @@ Aether.Orb.prototype._startLoop = function() {
 
 Aether.Orb.prototype._update = function() {
   // Smooth reactivity
-  this.reactivity += (this.targetReactivity - this.reactivity) * 0.15;
+  this.reactivity += (this.targetReactivity - this.reactivity) * 0.12;
 
-  // Update rings (speaking state)
-  for (var i = this.rings.length - 1; i >= 0; i--) {
-    this.rings[i].radius += this.rings[i].speed;
-    this.rings[i].alpha -= 0.012;
-    if (this.rings[i].alpha <= 0) this.rings.splice(i, 1);
+  // Mouth animation (during speaking)
+  if (this.state === 'speaking') {
+    this.mouthTarget = 0.3 + Math.sin(this.frame * 0.25) * 0.2 + Math.abs(Math.sin(this.frame * 0.15)) * 0.5;
+  } else {
+    this.mouthTarget = 0;
   }
+  this.mouthOpen += (this.mouthTarget - this.mouthOpen) * 0.3;
 
-  // Spawn rings in speaking state
-  if (this.state === 'speaking' && this.frame % 25 === 0) {
-    this.rings.push({
-      radius: this.radius * 1.1,
-      speed: 1.2 + Math.random() * 1.5,
-      alpha: 0.5,
-      maxR: this.size * 0.45
-    });
+  // Eye tracking — random micro-movements
+  if (this.frame % 40 === 0) {
+    this.eyeLookTargetX = (Math.random() - 0.5) * 0.12;
+    this.eyeLookTargetY = (Math.random() - 0.5) * 0.08;
   }
+  this.eyeLookX += (this.eyeLookTargetX - this.eyeLookX) * 0.1;
+  this.eyeLookY += (this.eyeLookTargetY - this.eyeLookY) * 0.1;
+
+  // Blink
+  this.blinkTimer--;
+  if (this.blinkTimer <= 0) {
+    this.blinking = 1;
+    this.blinkTimer = 120 + Math.random() * 200;
+  }
+  if (this.blinking > 0) this.blinking -= 0.15;
 };
 
 // ── State Public API ─────────────────────────────
@@ -100,30 +95,21 @@ Aether.Orb.prototype._update = function() {
 Aether.Orb.prototype.setState = function(state) {
   if (this.state === state) return;
   this.state = state;
-
   switch (state) {
-    case 'idle':
-      this.targetReactivity = 0;
-      break;
-    case 'listening':
-      this.targetReactivity = 0.6 + Math.random() * 0.4;
-      break;
-    case 'thinking':
-      this.targetReactivity = 0;
-      break;
-    case 'speaking':
-      this.targetReactivity = 0.3;
-      break;
-    case 'error':
-      this.targetReactivity = 0;
-      break;
+    case 'idle':      this.targetReactivity = 0; break;
+    case 'listening': this.targetReactivity = 0.7; break;
+    case 'thinking':  this.targetReactivity = 0; break;
+    case 'speaking':  this.targetReactivity = 0.4; break;
+    case 'error':     this.targetReactivity = 0; break;
   }
 };
 
-// Spice up listening state with fake reactivity
 Aether.Orb.prototype.pulse = function(intensity) {
   if (this.state === 'listening') {
-    this.targetReactivity = Math.min(1, 0.3 + intensity * 0.7);
+    this.targetReactivity = Math.min(1, 0.4 + intensity * 0.6);
+  }
+  if (this.state === 'thinking') {
+    this.targetReactivity = Math.min(1, intensity * 0.5);
   }
 };
 
@@ -135,169 +121,267 @@ Aether.Orb.prototype._draw = function() {
   ctx.save();
   ctx.scale(dpr, dpr);
 
-  // Clear
   ctx.clearRect(0, 0, this.size, this.size);
 
-  // State-specific drawing
-  switch (this.state) {
-    case 'idle':       this._drawIdle(ctx); break;
-    case 'listening':  this._drawListening(ctx); break;
-    case 'thinking':   this._drawThinking(ctx); break;
-    case 'speaking':   this._drawSpeaking(ctx); break;
-    case 'error':      this._drawError(ctx); break;
-  }
+  var scale = this.size / 220; // base design at 220px
 
+  // Get colors based on state
+  var colors = this._colors();
+
+  ctx.save();
+  ctx.translate(this.cx, this.cy);
+  ctx.scale(scale, scale);
+
+  // Glow aura
+  this._drawAura(ctx, colors);
+
+  // Neck/shoulders
+  this._drawNeck(ctx, colors);
+
+  // Head outline
+  this._drawHead(ctx, colors);
+
+  // Eyes
+  this._drawEyes(ctx, colors);
+
+  // Nose hint
+  this._drawNose(ctx, colors);
+
+  // Mouth
+  this._drawMouth(ctx, colors);
+
+  // Scan lines / hologram effect
+  this._drawScanLines(ctx, colors);
+
+  ctx.restore();
   ctx.restore();
 };
 
-// ── Idle State ───────────────────────────────────
+// ── Color palette per state ──────────────────────
 
-Aether.Orb.prototype._drawIdle = function(ctx) {
-  var pulse = 1 + Math.sin(this.frame * 0.03) * 0.06;
-
-  // Outer glow
-  this._drawGlow(ctx, this.cx, this.cy, this.radius * 2.2 * pulse, 'rgba(0,240,255,0.08)');
-  this._drawGlow(ctx, this.cx, this.cy, this.radius * 1.5, 'rgba(0,240,255,0.15)');
-
-  // Core orb
-  this._drawOrbCore(ctx, 'rgba(0,240,255,0.25)', 'rgba(0,240,255,0.12)', pulse);
-
-  // Orbiting particles
-  this._drawParticles(ctx, 'rgba(0,240,255,0.7)', false);
-};
-
-// ── Listening State ──────────────────────────────
-
-Aether.Orb.prototype._drawListening = function(ctx) {
+Aether.Orb.prototype._colors = function() {
   var r = this.reactivity;
-  var pulse = 1 + r * 0.25 + Math.sin(this.frame * 0.05) * 0.05;
-
-  // Pulsing glow
-  var glowAlpha = 0.1 + r * 0.15;
-  this._drawGlow(ctx, this.cx, this.cy, this.radius * (2.5 + r * 1.5) * pulse, 'rgba(255,255,255,' + glowAlpha + ')');
-  this._drawGlow(ctx, this.cx, this.cy, this.radius * (1.6 + r * 0.8) * pulse, 'rgba(0,240,255,' + (0.15 + r * 0.2) + ')');
-
-  // Core orb (larger during listening)
-  this._drawOrbCore(ctx, 'rgba(255,255,255,' + (0.2 + r * 0.3) + ')', 'rgba(0,240,255,' + (0.1 + r * 0.15) + ')', pulse);
-
-  // Audio-reactive particles (wider orbit, faster)
-  this._drawParticles(ctx, 'rgba(255,255,255,0.8)', true, r);
-};
-
-// ── Thinking State ───────────────────────────────
-
-Aether.Orb.prototype._drawThinking = function(ctx) {
-  var spin = this.frame * 0.06;
-  var pulse = 1 + Math.sin(this.frame * 0.08) * 0.1;
-
-  // Magenta glow
-  this._drawGlow(ctx, this.cx, this.cy, this.radius * 2.4 * pulse, 'rgba(255,0,255,0.1)');
-  this._drawGlow(ctx, this.cx, this.cy, this.radius * 1.6 * pulse, 'rgba(255,0,255,0.18)');
-
-  // Core orb
-  this._drawOrbCore(ctx, 'rgba(255,0,255,0.3)', 'rgba(255,0,255,0.15)', pulse);
-
-  // Fast orbiting particles
-  this._drawParticles(ctx, 'rgba(255,0,255,0.8)', true, 0, 2.5);
-};
-
-// ── Speaking State ───────────────────────────────
-
-Aether.Orb.prototype._drawSpeaking = function(ctx) {
-  var pulse = 1 + Math.sin(this.frame * 0.04) * 0.08;
-
-  // Glow
-  this._drawGlow(ctx, this.cx, this.cy, this.radius * 2 * pulse, 'rgba(0,240,255,0.08)');
-  this._drawGlow(ctx, this.cx, this.cy, this.radius * 1.4 * pulse, 'rgba(0,240,255,0.15)');
-
-  // Core
-  this._drawOrbCore(ctx, 'rgba(0,240,255,0.25)', 'rgba(0,240,255,0.1)', pulse);
-
-  // Expanding rings
-  for (var i = 0; i < this.rings.length; i++) {
-    var ring = this.rings[i];
-    if (ring.radius < ring.maxR) {
-      ctx.beginPath();
-      ctx.arc(this.cx, this.cy, ring.radius, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(0,240,255,' + ring.alpha + ')';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-    }
+  switch (this.state) {
+    case 'idle':
+      return { primary: 'rgba(0,240,255,0.9)', secondary: 'rgba(0,180,220,0.5)', glow: 'rgba(0,240,255,0.15)', accent: 'rgba(0,240,255,0.3)' };
+    case 'listening':
+      return { primary: 'rgba(255,255,255,0.95)', secondary: 'rgba(200,240,255,0.7)', glow: 'rgba(0,240,255,' + (0.15 + r * 0.2) + ')', accent: 'rgba(255,255,255,0.4)' };
+    case 'thinking':
+      return { primary: 'rgba(255,0,255,0.9)', secondary: 'rgba(200,50,220,0.6)', glow: 'rgba(255,0,255,0.12)', accent: 'rgba(255,0,255,0.3)' };
+    case 'speaking':
+      return { primary: 'rgba(0,240,255,0.9)', secondary: 'rgba(0,200,230,0.5)', glow: 'rgba(0,240,255,0.15)', accent: 'rgba(0,240,255,0.35)' };
+    case 'error':
+      return { primary: 'rgba(255,68,102,0.9)', secondary: 'rgba(200,50,70,0.5)', glow: 'rgba(255,68,102,0.1)', accent: 'rgba(255,68,102,0.25)' };
+    default:
+      return { primary: 'rgba(0,240,255,0.9)', secondary: 'rgba(0,180,220,0.5)', glow: 'rgba(0,240,255,0.15)', accent: 'rgba(0,240,255,0.3)' };
   }
-
-  // Particles
-  this._drawParticles(ctx, 'rgba(0,240,255,0.6)', false);
 };
 
-// ── Error State ──────────────────────────────────
+// ── Aura / background glow ───────────────────────
 
-Aether.Orb.prototype._drawError = function(ctx) {
-  var flicker = Math.sin(this.frame * 0.15) > 0 ? 1 : 0.4;
-
-  this._drawGlow(ctx, this.cx, this.cy, this.radius * 1.8, 'rgba(255,68,102,' + (0.1 * flicker) + ')');
-  this._drawGlow(ctx, this.cx, this.cy, this.radius * 1.3, 'rgba(255,68,102,' + (0.15 * flicker) + ')');
-
-  this._drawOrbCore(ctx, 'rgba(255,68,102,' + (0.3 * flicker) + ')', 'rgba(255,68,102,' + (0.1 * flicker) + ')', 1);
-
-  this._drawParticles(ctx, 'rgba(255,68,102,' + (0.7 * flicker) + ')', false);
-};
-
-// ── Drawing Primitives ───────────────────────────
-
-Aether.Orb.prototype._drawGlow = function(ctx, x, y, r, color) {
-  var grad = ctx.createRadialGradient(x, y, r * 0.3, x, y, r);
-  grad.addColorStop(0, color);
+Aether.Orb.prototype._drawAura = function(ctx, c) {
+  var pulse = 1 + Math.sin(this.frame * 0.02) * 0.08;
+  var r = 95 * pulse;
+  var grad = ctx.createRadialGradient(0, 0, r * 0.4, 0, 0, r);
+  grad.addColorStop(0, c.glow);
   grad.addColorStop(1, 'transparent');
   ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
   ctx.fill();
 };
 
-Aether.Orb.prototype._drawOrbCore = function(ctx, innerColor, outerColor, pulse) {
-  var r = this.radius * pulse;
+// ── Neck ─────────────────────────────────────────
 
-  // Outer sphere
-  var grad = ctx.createRadialGradient(this.cx - r * 0.15, this.cy - r * 0.15, r * 0.1, this.cx, this.cy, r);
-  grad.addColorStop(0, innerColor);
-  grad.addColorStop(1, outerColor);
-  ctx.fillStyle = grad;
+Aether.Orb.prototype._drawNeck = function(ctx, c) {
+  ctx.strokeStyle = c.secondary;
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.arc(this.cx, this.cy, r, 0, Math.PI * 2);
+  ctx.moveTo(-15, 55);
+  ctx.lineTo(-12, 95);
+  ctx.moveTo(15, 55);
+  ctx.lineTo(12, 95);
+  ctx.stroke();
+
+  // Collar line
+  ctx.beginPath();
+  ctx.moveTo(-25, 95);
+  ctx.lineTo(25, 95);
+  ctx.stroke();
+};
+
+// ── Head ─────────────────────────────────────────
+
+Aether.Orb.prototype._drawHead = function(ctx, c) {
+  var pulse = 1 + Math.sin(this.frame * 0.03) * 0.03;
+
+  // Hexagonal head outline
+  var hw = 42 * pulse;
+  var hh = 52 * pulse;
+  var top = -58 * pulse;
+  var bot = 46 * pulse;
+
+  ctx.strokeStyle = c.primary;
+  ctx.lineWidth = 1.8;
+  ctx.shadowColor = c.primary.replace('0.9', '0.5').replace('0.95', '0.5');
+  ctx.shadowBlur = 8;
+
+  // Rounded hexagon
+  ctx.beginPath();
+  var pts = [
+    [0, top], [hw, top + 15], [hw, bot - 15], [0, bot],
+    [-hw, bot - 15], [-hw, top + 15]
+  ];
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (var i = 1; i < 6; i++) {
+    ctx.lineTo(pts[i][0], pts[i][1]);
+  }
+  ctx.closePath();
+  ctx.stroke();
+
+  // Inner glow line
+  ctx.strokeStyle = c.accent;
+  ctx.lineWidth = 1;
+  ctx.shadowBlur = 3;
+  ctx.beginPath();
+  var inner = 0.92;
+  ctx.moveTo(pts[0][0] * inner, pts[0][1] * inner);
+  for (var j = 1; j < 6; j++) {
+    ctx.lineTo(pts[j][0] * inner, pts[j][1] * inner);
+  }
+  ctx.closePath();
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+};
+
+// ── Eyes ─────────────────────────────────────────
+
+Aether.Orb.prototype._drawEyes = function(ctx, c) {
+  var eyeY = -15;
+  var eyeGap = 16;
+  var eyeW = 14;
+  var eyeH = this.blinking > 0.5 ? 1.5 : 8;
+
+  // Listening: eyes wider
+  if (this.state === 'listening') { eyeH *= 1.3; eyeW *= 1.05; }
+  // Thinking: eyes narrower
+  if (this.state === 'thinking') { eyeH *= 0.65; eyeW *= 0.95; }
+
+  // Left eye
+  var lx = -eyeGap + this.eyeLookX * 3;
+  var ly = eyeY + this.eyeLookY * 2;
+  this._drawEye(ctx, lx, ly, eyeW, eyeH, c);
+  // Right eye
+  var rx = eyeGap + this.eyeLookX * 3;
+  var ry = eyeY + this.eyeLookY * 2;
+  this._drawEye(ctx, rx, ry, eyeW, eyeH, c);
+};
+
+Aether.Orb.prototype._drawEye = function(ctx, x, y, w, h, c) {
+  // Outer eye shape
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.strokeStyle = c.primary;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.ellipse(x, y, w, h, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Iris/pupil glow
+  var glowGrad = ctx.createRadialGradient(x, y - 1, 1, x, y, w * 0.7);
+  glowGrad.addColorStop(0, c.primary);
+  glowGrad.addColorStop(0.5, c.secondary);
+  glowGrad.addColorStop(1, 'transparent');
+  ctx.fillStyle = glowGrad;
+  ctx.beginPath();
+  ctx.arc(x, y, w * 0.55, 0, Math.PI * 2);
   ctx.fill();
 
-  // Specular highlight
-  var hlGrad = ctx.createRadialGradient(this.cx - r * 0.25, this.cy - r * 0.3, 0, this.cx - r * 0.2, this.cy - r * 0.2, r * 0.5);
-  hlGrad.addColorStop(0, 'rgba(255,255,255,0.2)');
-  hlGrad.addColorStop(1, 'transparent');
-  ctx.fillStyle = hlGrad;
+  // Pupil dot
+  ctx.fillStyle = '#fff';
   ctx.beginPath();
-  ctx.arc(this.cx, this.cy, r, 0, Math.PI * 2);
+  ctx.arc(x + this.eyeLookX * 2, y + this.eyeLookY * 1.5, 2, 0, Math.PI * 2);
   ctx.fill();
 };
 
-Aether.Orb.prototype._drawParticles = function(ctx, color, reactive, intensity, speedMul) {
-  intensity = intensity || 0;
-  speedMul = speedMul || 1;
+// ── Nose ─────────────────────────────────────────
 
-  for (var i = 0; i < this.particles.length; i++) {
-    var p = this.particles[i];
-    p.angle += p.speed * speedMul;
+Aether.Orb.prototype._drawNose = function(ctx, c) {
+  ctx.strokeStyle = c.secondary;
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(0, -2);
+  ctx.lineTo(0, 8);
+  ctx.moveTo(-4, 8);
+  ctx.lineTo(4, 8);
+  ctx.stroke();
+};
 
-    var orbitR = p.orbit + (reactive ? intensity * 25 * Math.sin(this.frame * 0.1 + p.offset) : 0);
-    var x = this.cx + Math.cos(p.angle) * orbitR;
-    var y = this.cy + Math.sin(p.angle) * orbitR;
+// ── Mouth ────────────────────────────────────────
 
+Aether.Orb.prototype._drawMouth = function(ctx, c) {
+  var my = 20;
+  var open = this.mouthOpen;
+
+  if (open < 0.02) {
+    // Closed: thin line
+    ctx.strokeStyle = c.primary;
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.arc(x, y, p.size, 0, Math.PI * 2);
-    ctx.fillStyle = color.replace('0.8', String(p.alpha)).replace('0.7', String(p.alpha)).replace('0.6', String(p.alpha));
-    ctx.fill();
-
-    // Particle trail/glow
+    ctx.moveTo(-12, my);
+    ctx.lineTo(12, my);
+    ctx.stroke();
+  } else {
+    // Open: ellipse
+    var mw = 14 + open * 3;
+    var mh = open * 10;
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.strokeStyle = c.primary;
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.arc(x, y, p.size * 3, 0, Math.PI * 2);
-    var trailAlpha = '0.1';
-    ctx.fillStyle = color.replace(/[\d.]+(?=\))/, trailAlpha);
+    ctx.ellipse(0, my + mh * 0.5, mw, mh, 0, 0, Math.PI * 2);
     ctx.fill();
+    ctx.stroke();
+
+    // Inner glow
+    var innerGrad = ctx.createRadialGradient(0, my + mh * 0.3, 0, 0, my + mh * 0.5, mh * 0.8);
+    innerGrad.addColorStop(0, c.glow.replace('0.15', '0.25').replace('0.12', '0.2').replace('0.1', '0.18'));
+    innerGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = innerGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, my + mh * 0.5, mw * 0.9, mh * 0.7, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Error: frown lines
+  if (this.state === 'error') {
+    ctx.strokeStyle = c.primary;
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(-20, my - 12);
+    ctx.lineTo(-9, my);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(20, my - 12);
+    ctx.lineTo(9, my);
+    ctx.stroke();
+  }
+};
+
+// ── Scan Lines ───────────────────────────────────
+
+Aether.Orb.prototype._drawScanLines = function(ctx, c) {
+  var t = this.frame * 0.02;
+  ctx.strokeStyle = c.accent.replace('0.3', '0.08').replace('0.35', '0.1').replace('0.25', '0.06');
+  ctx.lineWidth = 0.5;
+
+  for (var i = -60; i <= 60; i += 12) {
+    var y = i + (t % 12);
+    if (y < -55 || y > 50) continue;
+    ctx.beginPath();
+    ctx.moveTo(-40, y);
+    ctx.lineTo(40, y);
+    ctx.stroke();
   }
 };

@@ -138,7 +138,9 @@ Aether.SpeechOutput.prototype._pickBestVoice = function() {
   var voices = this.voices;
   if (voices.length === 0) return null;
 
-  var targetLang = Aether.SETTINGS.lang === 'th' ? 'th' : 'en';
+  var targetLang = (Aether.SETTINGS.ttsLang && Aether.SETTINGS.ttsLang !== 'auto')
+    ? Aether.SETTINGS.ttsLang
+    : (Aether.SETTINGS.lang === 'th' ? 'th' : 'en');
   var targetFull = targetLang === 'th' ? 'th-TH' : 'en-US';
 
   var scored = voices.map(function(v) {

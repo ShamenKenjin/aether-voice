@@ -94,6 +94,7 @@ Aether.I18N = {
       geminiKey: 'Gemini Vision API Key',
 
       wakeWord: 'Wake Word (Hey Aether)',
+      ttsLang: 'เสียง AI พูด',
       save: 'บันทึก', cancel: 'ยกเลิก', back: 'กลับ',
       apiKeyHint: 'รับ API key ได้ที่ platform.deepseek.com',
       geminiKeyHint: 'ใช้สำหรับวิเคราะห์รูปภาพ — รับ key ที่ aistudio.google.com',
@@ -118,7 +119,8 @@ Aether.I18N = {
       voiceRate: 'Speech Rate', voicePitch: 'Pitch', apiKey: 'API Key (DeepSeek)',
       systemPrompt: 'System Prompt', streaming: 'Streaming response', continuous: 'Continuous listening',
       geminiKey: 'Gemini Vision API Key',
-      wakeWord: 'Wake Word (\"Hey Aether\")',
+      wakeWord: 'Wake Word (\\"Hey Aether\\")',
+      ttsLang: 'AI Voice Language',
       save: 'Save', cancel: 'Cancel', back: 'Back',
       apiKeyHint: 'Get your API key at platform.deepseek.com',
       geminiKeyHint: 'For image analysis — get key at aistudio.google.com',
@@ -158,6 +160,7 @@ Aether.DEFAULTS = {
   geminiKey: '',
   llmProvider: 'deepseek',
   ttsProvider: 'proxy',  // 'browser' | 'proxy' (Google TTS via Pipeline-Studio server)
+  ttsLang: 'auto',        // 'auto' | 'th' | 'en' — TTS voice language
   ttsProxyUrl: 'http://localhost:4001/api/tts',
   systemPrompt: 'You are Aether, a brilliant and friendly AI assistant. You speak naturally and concisely. You answer in the same language the user speaks. Keep responses under 3 paragraphs unless asked for detail.',
   streamingEnabled: true,

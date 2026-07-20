@@ -74,12 +74,11 @@ Aether.UI.prototype._bindControls = function() {
     self._submitText();
   });
 
-  // File attachment
+  // File attachment (text + image + PDF)
   document.getElementById('btn-attach').addEventListener('click', function() {
     document.getElementById('file-input').click();
   });
 
-  var self = this;
   this._attachedFile = null;
   document.getElementById('file-input').addEventListener('change', function(e) {
     var file = e.target.files[0];
@@ -167,7 +166,10 @@ Aether.UI.prototype._createBubble = function(msg) {
   var roleName = msg.role === 'user' ? Aether.t('chat.you') : Aether.t('chat.aether');
   el.innerHTML =
     '<div class="msg-role">' + roleName + '</div>' +
-    '<div class="msg-content">' + this._escapeHtml(msg.content) + '</div>';
+    '<div class="msg-content">' + this._renderMarkdown(this._escapeHtml(msg.content)) + '</div>' +
+    '<button class="msg-copy-btn" title="Copy" onclick="Aether.UI._copyMessage(this)">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>' +
+    '</button>';
 
   if (msg.status === 'streaming') el.classList.add('streaming');
   if (msg.status === 'error') el.classList.add('error');
@@ -177,7 +179,10 @@ Aether.UI.prototype._createBubble = function(msg) {
 
 Aether.UI.prototype._updateBubble = function(el, msg) {
   var contentEl = el.querySelector('.msg-content');
-  if (contentEl) contentEl.textContent = msg.content;
+  if (contentEl) {
+    // Save cursor position for copy button
+    contentEl.innerHTML = this._renderMarkdown(this._escapeHtml(msg.content));
+  }
 
   el.classList.toggle('streaming', msg.status === 'streaming');
   el.classList.toggle('error', msg.status === 'error');
@@ -303,6 +308,7 @@ Aether.UI.prototype._populateSettings = function() {
   document.getElementById('set-pitch').value = s.voicePitch;
   document.getElementById('pitch-value').textContent = s.voicePitch;
   document.getElementById('set-apikey').value = s.apiKey;
+  document.getElementById('set-gemini-key').value = s.geminiKey || '';
   document.getElementById('set-prompt').value = s.systemPrompt;
   document.getElementById('toggle-streaming').classList.toggle('on', s.streamingEnabled);
   document.getElementById('toggle-continuous').classList.toggle('on', s.continuousListening);
@@ -316,6 +322,7 @@ Aether.UI.prototype._saveSettings = function() {
   s.voiceRate = parseFloat(document.getElementById('set-rate').value);
   s.voicePitch = parseFloat(document.getElementById('set-pitch').value);
   s.apiKey = document.getElementById('set-apikey').value.trim();
+  s.geminiKey = document.getElementById('set-gemini-key').value.trim();
   s.systemPrompt = document.getElementById('set-prompt').value.trim();
   s.streamingEnabled = document.getElementById('toggle-streaming').classList.contains('on');
   s.continuousListening = document.getElementById('toggle-continuous').classList.contains('on');
@@ -375,7 +382,8 @@ Aether.UI.prototype._updateTexts = function() {
   // Settings labels
   var labels = {
     'set-lang': 'lang', 'set-theme': 'theme', 'set-voice': 'voice',
-    'set-rate': 'voiceRate', 'set-pitch': 'voicePitch', 'set-apikey': 'apiKey', 'set-prompt': 'systemPrompt'
+    'set-rate': 'voiceRate', 'set-pitch': 'voicePitch', 'set-apikey': 'apiKey',
+    'set-gemini-key': 'geminiKey', 'set-prompt': 'systemPrompt'
   };
   for (var id in labels) {
     var el = document.querySelector('label[for="' + id + '"]');
@@ -384,6 +392,7 @@ Aether.UI.prototype._updateTexts = function() {
 
   // Hints
   document.querySelector('#set-apikey + .setting-hint').textContent = Aether.t('settings.apiKeyHint');
+  document.querySelector('#set-gemini-key + .setting-hint').textContent = Aether.t('settings.geminiKeyHint');
   document.querySelector('#set-voice + .setting-hint').textContent = Aether.t('settings.voiceHint');
 
   // Toggle texts
@@ -394,6 +403,81 @@ Aether.UI.prototype._updateTexts = function() {
   document.getElementById('btn-save-settings').textContent = Aether.t('settings.save');
   document.getElementById('btn-cancel-settings').textContent = Aether.t('settings.cancel');
   document.getElementById('btn-close-export').textContent = Aether.t('settings.cancel');
+};
+
+// ── Markdown Rendering ────────────────────────────
+
+Aether.UI.prototype._renderMarkdown = function(escapedText) {
+  if (!escapedText) return '';
+
+  var html = escapedText;
+
+  // Code blocks with backticks: ```code```
+  html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, function(m, lang, code) {
+    return '<pre><code class="' + (lang || '') + '">' + code.trim() + '</code></pre>';
+  });
+
+  // Inline code: `code`
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Bold: **text**
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+  // Italic: *text*
+  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+  // Unordered list items: - item or * item
+  html = html.replace(/(^|\n)[-*] (.+?)(?=\n|$)/g, function(m, prefix, item) {
+    return prefix + '<li>' + item + '</li>';
+  });
+  // Wrap consecutive <li> in <ul>
+  html = html.replace(/((?:<li>.*?<\/li>\n?)+)/g, '<ul>$1</ul>');
+
+  // Ordered list: 1. item
+  html = html.replace(/(^|\n)(\d+)\. (.+?)(?=\n|$)/g, function(m, prefix, num, item) {
+    return prefix + '<li>' + item + '</li>';
+  });
+
+  // Line breaks (double newline → paragraph break, single → <br>)
+  html = html.replace(/\n\n/g, '</p><p>');
+  html = html.replace(/\n/g, '<br>');
+
+  // Wrap in paragraph if not already in a block element
+  if (!html.match(/^<(pre|ul|ol|li|p)/)) {
+    html = '<p>' + html + '</p>';
+  }
+
+  return html;
+};
+
+// ── Copy Message (static, called from onclick) ─────
+
+Aether.UI._copyMessage = function(btn) {
+  var bubble = btn.closest('.chat-msg');
+  if (!bubble) return;
+
+  var contentEl = bubble.querySelector('.msg-content');
+  if (!contentEl) return;
+
+  var text = contentEl.textContent || '';
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() {
+      btn.classList.add('copied');
+      setTimeout(function() { btn.classList.remove('copied'); }, 1500);
+    });
+  } else {
+    // Fallback
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.classList.add('copied');
+    setTimeout(function() { btn.classList.remove('copied'); }, 1500);
+  }
 };
 
 // ── Helpers ──────────────────────────────────────
@@ -421,15 +505,33 @@ Aether.UI.prototype._submitText = function() {
   if (!text && !hasFile) return;
 
   if (this._attachedFile) {
-    // Read file and include in message
-    this._readFileContent(this._attachedFile, function(fileContent) {
-      var msg = text;
-      if (fileContent) {
-        msg += '\n\n[File: ' + this._attachedFile.name + ']\n' + fileContent;
-      }
+    var file = this._attachedFile;
+    var isImage = file.type.match(/^image\//);
+    var isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+
+    if (isImage) {
+      // Send image for vision analysis
+      var capturedText = text;
+      var capturedFile = file;
       this._clearInput();
-      if (this.onTextSend) this.onTextSend(msg);
-    }.bind(this));
+      if (this.onVisionSend) this.onVisionSend({ text: capturedText, file: capturedFile, type: 'image' });
+    } else if (isPdf) {
+      // Read PDF via vision module
+      var capturedPdfText = text;
+      var capturedPdfFile = file;
+      this._clearInput();
+      if (this.onVisionSend) this.onVisionSend({ text: capturedPdfText, file: capturedPdfFile, type: 'pdf' });
+    } else {
+      // Read file content (text files)
+      this._readFileContent(file, function(fileContent) {
+        var msg = text;
+        if (fileContent) {
+          msg += '\n\n[File: ' + file.name + ']\n' + fileContent;
+        }
+        this._clearInput();
+        if (this.onTextSend) this.onTextSend(msg);
+      }.bind(this));
+    }
   } else {
     this._clearInput();
     if (this.onTextSend) this.onTextSend(text);
@@ -446,7 +548,20 @@ Aether.UI.prototype._clearInput = function() {
 Aether.UI.prototype._showFilePreview = function(file) {
   var el = document.getElementById('file-preview');
   el.classList.remove('hidden');
-  el.innerHTML = '📎 ' + file.name + ' <span class="remove-file" onclick="AetherApp.ui._clearInput()">✕</span>';
+
+  var isImage = file.type.match(/^image\//);
+  var isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+
+  if (isImage) {
+    var imgUrl = URL.createObjectURL(file);
+    el.innerHTML = '<img src="' + imgUrl + '" class="attach-thumb" onload="this.style.opacity=1">'
+      + '<span class="attach-name">' + this._escapeHtml(file.name) + '</span>'
+      + '<span class="remove-file" onclick="AetherApp.ui._clearInput()">✕</span>';
+  } else if (isPdf) {
+    el.innerHTML = '📄 ' + file.name + ' <span class="remove-file" onclick="AetherApp.ui._clearInput()">✕</span>';
+  } else {
+    el.innerHTML = '📎 ' + file.name + ' <span class="remove-file" onclick="AetherApp.ui._clearInput()">✕</span>';
+  }
 };
 
 Aether.UI.prototype._hideFilePreview = function() {

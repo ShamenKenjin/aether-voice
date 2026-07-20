@@ -9,6 +9,7 @@ Aether.App = function() {
   this.speechOut = null;
   this.llm = null;
   this.conversation = null;
+  this.vision = null;
 
   this.state = 'idle'; // idle | listening | thinking | speaking | error
   this.isMicPressed = false;
@@ -27,6 +28,7 @@ Aether.App.prototype._init = function() {
   this.speechOut = new Aether.SpeechOutput();
   this.llm = new Aether.LLM();
   this.conversation = new Aether.Conversation();
+  this.vision = new Aether.Vision();
 
   // Link orb to UI
   this.ui.orb = this.orb;
@@ -128,6 +130,11 @@ Aether.App.prototype._wireUI = function() {
   this.ui.onTextSend = function(text) {
     self._onUserSpeech(text);
   };
+
+  // Vision input (image/PDF)
+  this.ui.onVisionSend = function(payload) {
+    self._onVisionSubmit(payload);
+  };
 };
 
 Aether.App.prototype._wireSettingsChange = function() {
@@ -165,6 +172,104 @@ Aether.App.prototype._stopListening = function() {
 };
 
 // ── Core Pipeline ────────────────────────────────
+
+Aether.App.prototype._onVisionSubmit = function(payload) {
+  var self = this;
+
+  // Show user message in chat
+  var userText = payload.text || '';
+  var fileLabel = payload.type === 'image'
+    ? '🖼 [Image: ' + payload.file.name + ']'
+    : '📄 [PDF: ' + payload.file.name + ']';
+
+  var displayText = userText || fileLabel;
+  if (userText) displayText = fileLabel + ' ' + userText;
+
+  this.conversation.addMessage('user', displayText, 'complete');
+  this.ui.renderMessages(this.conversation.messages);
+
+  this.setState('thinking');
+
+  // Add placeholder for assistant
+  var assistantMsg = this.conversation.addMessage('assistant', '', 'streaming');
+  this.ui.renderMessages(this.conversation.messages);
+
+  // Analyze file
+  var analyzePromise;
+  if (payload.type === 'image') {
+    analyzePromise = this.vision.analyzeImage(payload.file);
+  } else if (payload.type === 'pdf') {
+    analyzePromise = this.vision.extractPdfText(payload.file);
+  } else {
+    analyzePromise = Promise.reject('Unknown file type');
+  }
+
+  analyzePromise.then(function(description) {
+    // Build the final message for LLM
+    var fullPrompt = '';
+    if (payload.type === 'image') {
+      fullPrompt = 'I am sending you an image described by a vision AI. Here is the description:\n\n--- IMAGE DESCRIPTION ---\n' + description + '\n--- END ---\n\n';
+    } else {
+      fullPrompt = 'I am sending you a PDF document. Here is the extracted text:\n\n--- PDF CONTENT ---\n' + description + '\n--- END ---\n\n';
+    }
+    if (userText) {
+      fullPrompt += 'My question: ' + userText;
+    } else {
+      fullPrompt += 'Please analyze this for me.';
+    }
+
+    // Add system-level context message for LLM
+    // We send the full prompt as user message to LLM
+    self._sendToLLM(fullPrompt, assistantMsg);
+  }).catch(function(err) {
+    assistantMsg.content = '❌ ' + (typeof err === 'string' ? err : 'Failed to analyze file');
+    assistantMsg.status = 'error';
+    self.conversation._save();
+    self.ui.renderMessages(self.conversation.messages);
+    self.setState('error');
+    self.ui.showError(typeof err === 'string' ? err : 'File analysis failed');
+  });
+};
+
+// ── LLM Send (shared by text and vision) ─────────
+
+Aether.App.prototype._sendToLLM = function(promptText, assistantMsg) {
+  var self = this;
+
+  // Prepare messages: system prompt managed by llm.js itself
+  // But we need to include recent conversation context
+  // For vision analysis, we just send the vision description as a fresh user message
+  var messages = [{ role: 'user', content: promptText }];
+
+  this.llm.send(messages, {
+    streaming: Aether.SETTINGS.streamingEnabled,
+    onToken: function(token, fullContent) {
+      assistantMsg.content = fullContent;
+      assistantMsg.status = 'streaming';
+      self.ui.renderMessages(self.conversation.messages);
+
+      if (self.orb && self.state === 'thinking') {
+        self.orb.pulse(0.3 + Math.random() * 0.3);
+      }
+    },
+    onComplete: function(fullContent) {
+      assistantMsg.content = fullContent;
+      assistantMsg.status = 'complete';
+      self.conversation._save();
+      self.ui.renderMessages(self.conversation.messages);
+
+      self._speakResponse(fullContent);
+    },
+    onError: function(error) {
+      assistantMsg.content = error;
+      assistantMsg.status = 'error';
+      self.conversation._save();
+      self.ui.renderMessages(self.conversation.messages);
+      self.setState('error');
+      self.ui.showError(error);
+    }
+  });
+};
 
 Aether.App.prototype._onUserSpeech = function(text) {
   var self = this;

@@ -25,16 +25,15 @@
 - [x] **Text input** — พิมพ์แชท + Enter/send button
 - [x] **File attachment** — แนบไฟล์ (.txt .md .json .py ฯลฯ) ให้ AI อ่านเป็น reference
 - [x] **Bug fixes** — renderMessages null pointer, TTS fallback
+- [x] **Phase 6** — Vision & Rich Media
+  - [x] Image attachment → Gemini Vision API (analyze image, feed to LLM)
+  - [x] PDF text extraction (pdf.js CDN)
+  - [x] Markdown rendering in chat bubbles (code blocks, lists, bold, italic)
+  - [x] Copy message button per bubble
 
 ---
 
 ## 📋 Remaining
-
-### Phase 6 — Vision & Rich Media
-- [ ] Image attachment → Gemini Vision API (describe image, feed to LLM)
-- [ ] PDF text extraction (pdf.js or server-side)
-- [ ] Markdown rendering in chat bubbles (code blocks, lists, bold)
-- [ ] Copy message button per bubble
 
 ### Phase 7 — UX Polish
 - [ ] Wake word detection ("Hey Aether") — always-listening mode

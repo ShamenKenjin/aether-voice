@@ -116,6 +116,51 @@ body::before {
 @keyframes blink { 50% { opacity:0; } }
 .chat-msg.error { border-color:var(--aether-red); }
 
+/* Copy button */
+.chat-msg { position:relative; }
+.msg-copy-btn {
+  position:absolute; top:4px; right:4px;
+  background:rgba(0,0,0,0.3); border:1px solid transparent;
+  color:var(--aether-textDim); width:26px; height:26px;
+  border-radius:6px; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; opacity:0; transition:all 0.2s; padding:0;
+}
+.chat-msg:hover .msg-copy-btn { opacity:0.7; }
+.msg-copy-btn:hover { opacity:1 !important; border-color:var(--aether-cyan); color:var(--aether-cyan); }
+.msg-copy-btn.copied { color:var(--aether-green); border-color:var(--aether-green); opacity:1 !important; }
+
+/* Markdown — inline code */
+.msg-content code {
+  background:rgba(0,240,255,0.1); color:var(--aether-cyan);
+  padding:1px 5px; border-radius:4px; font-size:0.85em;
+  font-family:'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+}
+
+/* Markdown — code block */
+.msg-content pre {
+  background:rgba(0,0,0,0.4); border:1px solid var(--aether-border);
+  border-radius:8px; padding:10px 14px; overflow-x:auto;
+  margin:8px 0; font-size:0.83em; line-height:1.5;
+}
+.msg-content pre code {
+  background:none; color:var(--aether-green); padding:0; font-size:inherit;
+}
+
+/* Markdown — bold/italic */
+.msg-content strong { color:var(--aether-cyan); }
+.msg-content em { color:var(--aether-text); font-style:italic; }
+
+/* Markdown — lists */
+.msg-content ul, .msg-content ol {
+  margin:4px 0; padding-left:20px;
+}
+.msg-content li { margin:2px 0; }
+
+/* Markdown — paragraphs */
+.msg-content p { margin:4px 0; }
+.msg-content p:first-child { margin-top:0; }
+.msg-content p:last-child { margin-bottom:0; }
+
 /* ── Control Bar ───────────────────────────────── */
 #control-bar {
   flex-shrink:0; display:flex; align-items:center; justify-content:center;
@@ -301,6 +346,12 @@ body::before {
   background:rgba(0,240,255,0.08); border-radius:6px;
   display:flex; align-items:center; gap:6px;
   max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.file-preview .attach-thumb {
+  width:24px; height:24px; object-fit:cover; border-radius:4px; opacity:0; transition:opacity 0.2s;
+}
+.file-preview .attach-name {
+  overflow:hidden; text-overflow:ellipsis;
 }
 .file-preview .remove-file {
   cursor:pointer; opacity:0.6; font-size:0.9rem;

@@ -73,6 +73,8 @@ Aether.I18N = {
       voiceRate: 'ความเร็วเสียง', voicePitch: 'ระดับเสียง', apiKey: 'API Key (DeepSeek)',
       systemPrompt: 'System Prompt', streaming: 'แสดงผลแบบ streaming', continuous: 'ฟังต่อเนื่อง',
       geminiKey: 'Gemini Vision API Key',
+
+      wakeWord: 'Wake Word (Hey Aether)',
       save: 'บันทึก', cancel: 'ยกเลิก', back: 'กลับ',
       apiKeyHint: 'รับ API key ได้ที่ platform.deepseek.com',
       geminiKeyHint: 'ใช้สำหรับวิเคราะห์รูปภาพ — รับ key ที่ aistudio.google.com',
@@ -96,6 +98,7 @@ Aether.I18N = {
       voiceRate: 'Speech Rate', voicePitch: 'Pitch', apiKey: 'API Key (DeepSeek)',
       systemPrompt: 'System Prompt', streaming: 'Streaming response', continuous: 'Continuous listening',
       geminiKey: 'Gemini Vision API Key',
+      wakeWord: 'Wake Word (\"Hey Aether\")',
       save: 'Save', cancel: 'Cancel', back: 'Back',
       apiKeyHint: 'Get your API key at platform.deepseek.com',
       geminiKeyHint: 'For image analysis — get key at aistudio.google.com',
@@ -137,7 +140,8 @@ Aether.DEFAULTS = {
   ttsProxyUrl: 'http://localhost:4001/api/tts',
   systemPrompt: 'You are Aether, a brilliant and friendly AI assistant. You speak naturally and concisely. You answer in the same language the user speaks. Keep responses under 3 paragraphs unless asked for detail.',
   streamingEnabled: true,
-  continuousListening: false
+  continuousListening: false,
+  wakeWordEnabled: false
 };
 
 Aether.SETTINGS = {};

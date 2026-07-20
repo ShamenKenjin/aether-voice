@@ -10,6 +10,8 @@ Aether.App = function() {
   this.llm = null;
   this.conversation = null;
   this.vision = null;
+  this.sfx = null;
+  this.wakeword = null;
 
   this.state = 'idle'; // idle | listening | thinking | speaking | error
   this.isMicPressed = false;
@@ -29,6 +31,8 @@ Aether.App.prototype._init = function() {
   this.llm = new Aether.LLM();
   this.conversation = new Aether.Conversation();
   this.vision = new Aether.Vision();
+  this.sfx = new Aether.SFX();
+  this.wakeword = new Aether.WakeWord();
 
   // Link orb to UI
   this.ui.orb = this.orb;
@@ -45,6 +49,21 @@ Aether.App.prototype._init = function() {
   // Initial render
   this.ui.renderMessages(this.conversation.messages);
   this.ui.setOrbState('idle');
+
+  // Wire wake word
+  var self = this;
+  if (this.wakeword) {
+    this.wakeword.onWake = function() {
+      // Wake word detected — start listening (like mic press)
+      if (self.state === 'speaking') self.speechOut.stop();
+      self._startListening();
+      // Auto-release after speech result
+    };
+    // Activate if setting is on
+    if (Aether.SETTINGS.wakeWordEnabled) {
+      this.wakeword.activate();
+    }
+  }
 
   // Check browser support
   if (!this.speechIn.isSupported) {
@@ -144,7 +163,18 @@ Aether.App.prototype._wireSettingsChange = function() {
     self.ui._loadVoices();
     // Update orb label
     self.ui.setOrbState(self.state);
+    // Handle wake word activation
+    self._handleWakeWordSetting();
   };
+};
+
+Aether.App.prototype._handleWakeWordSetting = function() {
+  if (!this.wakeword) return;
+  if (Aether.SETTINGS.wakeWordEnabled) {
+    this.wakeword.activate();
+  } else {
+    this.wakeword.deactivate();
+  }
 };
 
 // ── Listening Flow ───────────────────────────────
@@ -157,6 +187,7 @@ Aether.App.prototype._startListening = function() {
   this.speechIn.start();
   this.setState('listening');
   this.ui.setMicState('listening');
+  if (this.sfx) this.sfx.micClick();
 };
 
 Aether.App.prototype._stopListening = function() {
@@ -187,6 +218,7 @@ Aether.App.prototype._onVisionSubmit = function(payload) {
 
   this.conversation.addMessage('user', displayText, 'complete');
   this.ui.renderMessages(this.conversation.messages);
+  if (this.sfx) this.sfx.sendWhoosh();
 
   this.setState('thinking');
 
@@ -258,6 +290,7 @@ Aether.App.prototype._sendToLLM = function(promptText, assistantMsg) {
       self.conversation._save();
       self.ui.renderMessages(self.conversation.messages);
 
+      if (self.sfx) self.sfx.receiveChime();
       self._speakResponse(fullContent);
     },
     onError: function(error) {
@@ -267,6 +300,7 @@ Aether.App.prototype._sendToLLM = function(promptText, assistantMsg) {
       self.ui.renderMessages(self.conversation.messages);
       self.setState('error');
       self.ui.showError(error);
+      if (self.sfx) self.sfx.errorBuzz();
     }
   });
 };
@@ -277,6 +311,7 @@ Aether.App.prototype._onUserSpeech = function(text) {
   // Add user message
   this.conversation.addMessage('user', text, 'complete');
   this.ui.renderMessages(this.conversation.messages);
+  if (this.sfx) this.sfx.sendWhoosh();
 
   // Don't auto-stop mic in continuous mode
   if (!Aether.SETTINGS.continuousListening) {
@@ -314,6 +349,7 @@ Aether.App.prototype._onUserSpeech = function(text) {
       self.conversation._save();
       self.ui.renderMessages(self.conversation.messages);
 
+      if (self.sfx) self.sfx.receiveChime();
       // Speak the response
       self._speakResponse(fullContent);
     },
@@ -324,6 +360,7 @@ Aether.App.prototype._onUserSpeech = function(text) {
       self.ui.renderMessages(self.conversation.messages);
       self.setState('error');
       self.ui.showError(error);
+      if (self.sfx) self.sfx.errorBuzz();
     }
   });
 };

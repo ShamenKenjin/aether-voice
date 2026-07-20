@@ -161,6 +161,23 @@ body::before {
 .msg-content p:first-child { margin-top:0; }
 .msg-content p:last-child { margin-bottom:0; }
 
+/* Typing indicator dots */
+.typing-dots {
+  display:inline-flex; gap:3px; align-items:center; margin-left:2px;
+  vertical-align:middle;
+}
+.typing-dots span {
+  width:5px; height:5px; border-radius:50%;
+  background:var(--aether-cyan);
+  animation:dotBounce 1.2s ease-in-out infinite;
+}
+.typing-dots span:nth-child(2) { animation-delay:0.2s; }
+.typing-dots span:nth-child(3) { animation-delay:0.4s; }
+@keyframes dotBounce {
+  0%,60%,100% { transform:translateY(0); opacity:0.3; }
+  30% { transform:translateY(-6px); opacity:1; }
+}
+
 /* ── Control Bar ───────────────────────────────── */
 #control-bar {
   flex-shrink:0; display:flex; align-items:center; justify-content:center;

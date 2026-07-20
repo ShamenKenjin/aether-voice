@@ -146,3 +146,59 @@ Aether.Conversation.prototype._uuid = function() {
     return v.toString(16);
   });
 };
+
+// ── Conversation History (static) ─────────────────
+
+Aether.Conversation.listAll = function() {
+  try {
+    var raw = localStorage.getItem('aether_conversations');
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+};
+
+Aether.Conversation.saveAll = function(list) {
+  try {
+    localStorage.setItem('aether_conversations', JSON.stringify(list));
+  } catch(e) { /* quota */ }
+};
+
+Aether.Conversation.deleteConv = function(id) {
+  var list = Aether.Conversation.listAll();
+  list = list.filter(function(c) { return c.id !== id; });
+  Aether.Conversation.saveAll(list);
+  localStorage.removeItem('aether_conv_' + id);
+};
+
+Aether.Conversation.saveCurrent = function(conv) {
+  var list = Aether.Conversation.listAll();
+  // Upsert
+  var found = false;
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].id === conv.id) { list[i] = Aether.Conversation._summarize(conv); found = true; break; }
+  }
+  if (!found) list.unshift(Aether.Conversation._summarize(conv));
+  // Keep max 50
+  if (list.length > 50) list = list.slice(0, 50);
+  Aether.Conversation.saveAll(list);
+};
+
+Aether.Conversation._summarize = function(conv) {
+  return {
+    id: conv.id,
+    title: Aether.Conversation._makeTitle(conv),
+    messageCount: conv.messages.length,
+    createdAt: conv.createdAt,
+    updatedAt: conv.updatedAt
+  };
+};
+
+Aether.Conversation._makeTitle = function(conv) {
+  for (var i = 0; i < conv.messages.length; i++) {
+    if (conv.messages[i].role === 'user' && conv.messages[i].content) {
+      var text = conv.messages[i].content.replace(/\n/g, ' ').trim();
+      return text.length > 40 ? text.slice(0, 40) + '...' : text;
+    }
+  }
+  return 'New Conversation';
+};
+

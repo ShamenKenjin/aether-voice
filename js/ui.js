@@ -15,6 +15,7 @@ Aether.UI = function() {
 Aether.UI.prototype._init = function() {
   this._bindControls();
   this._bindSettings();
+  this._bindKeyboard();
   this._updateTexts();
 };
 
@@ -167,12 +168,16 @@ Aether.UI.prototype._createBubble = function(msg) {
   el.innerHTML =
     '<div class="msg-role">' + roleName + '</div>' +
     '<div class="msg-content">' + this._renderMarkdown(this._escapeHtml(msg.content)) + '</div>' +
+    '<div class="typing-dots"><span></span><span></span><span></span></div>' +
     '<button class="msg-copy-btn" title="Copy" onclick="Aether.UI._copyMessage(this)">' +
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>' +
     '</button>';
 
   if (msg.status === 'streaming') el.classList.add('streaming');
   if (msg.status === 'error') el.classList.add('error');
+  // Hide typing dots by default, show only when streaming with empty content
+  var dots = el.querySelector('.typing-dots');
+  if (dots) dots.style.display = (msg.status === 'streaming' && !msg.content) ? 'flex' : 'none';
 
   return el;
 };
@@ -180,12 +185,15 @@ Aether.UI.prototype._createBubble = function(msg) {
 Aether.UI.prototype._updateBubble = function(el, msg) {
   var contentEl = el.querySelector('.msg-content');
   if (contentEl) {
-    // Save cursor position for copy button
     contentEl.innerHTML = this._renderMarkdown(this._escapeHtml(msg.content));
   }
 
   el.classList.toggle('streaming', msg.status === 'streaming');
   el.classList.toggle('error', msg.status === 'error');
+
+  // Toggle typing dots visibility
+  var dots = el.querySelector('.typing-dots');
+  if (dots) dots.style.display = (msg.status === 'streaming' && !msg.content) ? 'flex' : 'none';
 };
 
 // ── Interrim Text (while listening) ─────────────
@@ -223,6 +231,36 @@ Aether.UI.prototype._removeError = function() {
   if (el) el.remove();
 };
 
+// ── Keyboard Shortcuts ───────────────────────────
+
+Aether.UI.prototype._bindKeyboard = function() {
+  var self = this;
+  document.addEventListener('keydown', function(e) {
+    // Ctrl+Enter / Cmd+Enter → Send
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      self._submitText();
+      return;
+    }
+    // Ctrl+M → Toggle mic (press/release)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'm') {
+      e.preventDefault();
+      if (self.onMicPress) self.onMicPress();
+      // Auto-release after 50ms since we can't detect keyup easily here
+      setTimeout(function() {
+        if (self.onMicRelease) self.onMicRelease();
+      }, 50);
+      return;
+    }
+    // Escape → Close settings/overlays, stop speaking
+    if (e.key === 'Escape') {
+      self.hideSettings();
+      document.getElementById('export-overlay').classList.add('hidden');
+      return;
+    }
+  });
+};
+
 // ── Settings Panel ───────────────────────────────
 
 Aether.UI.prototype._bindSettings = function() {
@@ -233,6 +271,11 @@ Aether.UI.prototype._bindSettings = function() {
     this.classList.toggle('on');
   });
   document.getElementById('toggle-continuous').addEventListener('click', function() {
+    this.classList.toggle('on');
+  });
+
+  // Wake word toggle
+  document.getElementById('toggle-wakeword').addEventListener('click', function() {
     this.classList.toggle('on');
   });
 
@@ -312,6 +355,7 @@ Aether.UI.prototype._populateSettings = function() {
   document.getElementById('set-prompt').value = s.systemPrompt;
   document.getElementById('toggle-streaming').classList.toggle('on', s.streamingEnabled);
   document.getElementById('toggle-continuous').classList.toggle('on', s.continuousListening);
+  document.getElementById('toggle-wakeword').classList.toggle('on', s.wakeWordEnabled);
 };
 
 Aether.UI.prototype._saveSettings = function() {
@@ -326,6 +370,7 @@ Aether.UI.prototype._saveSettings = function() {
   s.systemPrompt = document.getElementById('set-prompt').value.trim();
   s.streamingEnabled = document.getElementById('toggle-streaming').classList.contains('on');
   s.continuousListening = document.getElementById('toggle-continuous').classList.contains('on');
+  s.wakeWordEnabled = document.getElementById('toggle-wakeword').classList.contains('on');
 
   Aether.saveSettings();
   Aether.applyTheme(s.theme);
@@ -398,6 +443,7 @@ Aether.UI.prototype._updateTexts = function() {
   // Toggle texts
   document.querySelector('#toggle-streaming').previousElementSibling.textContent = Aether.t('settings.streaming');
   document.querySelector('#toggle-continuous').previousElementSibling.textContent = Aether.t('settings.continuous');
+  document.querySelector('#toggle-wakeword').previousElementSibling.textContent = Aether.t('settings.wakeWord');
 
   // Buttons
   document.getElementById('btn-save-settings').textContent = Aether.t('settings.save');

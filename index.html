@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Aether — Voice AI</title>
 <link rel="stylesheet" href="css/style.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#00f0ff">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='none' stroke='%2300f0ff' stroke-width='3'/><circle cx='50' cy='50' r='20' fill='%2300f0ff' opacity='0.4'/></svg>">
 </head>
 <body>
@@ -128,6 +130,14 @@
             <div class="toggle" id="toggle-continuous"></div>
           </div>
         </div>
+
+        <div class="setting-group toggle-group">
+          <label class="setting-label"></label>
+          <div class="toggle-row">
+            <span class="toggle-text"></span>
+            <div class="toggle" id="toggle-wakeword"></div>
+          </div>
+        </div>
       </div>
 
       <div class="settings-actions">
@@ -154,12 +164,23 @@
 <!-- ═══ Scripts ═══════════════════════════════════ -->
 <script src="js/config.js"></script>
 <script src="js/vision.js"></script>
+<script src="js/sfx.js"></script>
+<script src="js/wakeword.js"></script>
 <script src="js/speech.js"></script>
 <script src="js/llm.js"></script>
 <script src="js/conversation.js"></script>
 <script src="js/orb.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/app.js"></script>
+
+<!-- Service Worker Registration -->
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').then(function() {
+    console.log('SW registered');
+  }).catch(function() { /* offline not required */ });
+}
+</script>
 
 </body>
 </html>

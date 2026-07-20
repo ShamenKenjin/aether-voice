@@ -166,17 +166,20 @@ body::before{
 @keyframes blink{50%{opacity:0}}
 .chat-msg.error{border-color:var(--red);}
 
-/* Copy + Edit buttons */
-.chat-msg .msg-copy-btn,.chat-msg .msg-edit-btn{
+/* Copy + Edit + Speak buttons */
+.chat-msg .msg-copy-btn,.chat-msg .msg-edit-btn,.chat-msg .msg-speak-btn{
   position:absolute;top:4px;background:rgba(0,0,0,0.4);border:1px solid transparent;
   color:var(--dim);width:22px;height:22px;border-radius:3px;
   display:flex;align-items:center;justify-content:center;
   cursor:pointer;opacity:0;transition:all 0.2s;padding:0;
 }
+.msg-speak-btn{right:52px;font-size:10px;}
 .msg-edit-btn{right:28px;}
 .msg-copy-btn{right:4px;}
+.chat-msg.assistant:hover .msg-copy-btn,
+.chat-msg.assistant:hover .msg-speak-btn{opacity:0.6;}
 .chat-msg.user:hover .msg-copy-btn,.chat-msg.user:hover .msg-edit-btn{opacity:0.6;}
-.msg-copy-btn:hover,.msg-edit-btn:hover{opacity:1!important;border-color:var(--cyan);color:var(--cyan);}
+.msg-copy-btn:hover,.msg-edit-btn:hover,.msg-speak-btn:hover{opacity:1!important;border-color:var(--cyan);color:var(--cyan);}
 
 /* Markdown */
 .msg-content code{background:rgba(0,210,255,0.1);color:var(--cyan);padding:1px 4px;border-radius:3px;font-size:0.8em;font-family:var(--mono);}

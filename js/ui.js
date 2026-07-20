@@ -168,12 +168,26 @@ Aether.UI.prototype._createBubble = function(msg) {
     '<div class="msg-role">' + roleName + '</div>' +
     '<div class="msg-content">' + this._renderMarkdown(this._escapeHtml(msg.content)) + '</div>' +
     '<div class="typing-dots"><span></span><span></span><span></span></div>' +
+    (msg.role === 'assistant' && msg.content ? '<button class="msg-speak-btn" title="Replay">🔊</button>' : '') +
     '<button class="msg-edit-btn" title="Edit" onclick="Aether.UI._editMessage(this)">' +
       '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>' +
     '</button>' +
     '<button class="msg-copy-btn" title="Copy" onclick="Aether.UI._copyMessage(this)">' +
       '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>' +
     '</button>';
+
+  if (msg.role === 'assistant' && msg.content) {
+    el.style.cursor = 'pointer';
+    var self = this;
+    el.addEventListener('click', function(e) {
+      // Don't trigger on button clicks
+      if (e.target.closest('button')) return;
+      if (window.AetherApp && window.AetherApp.speechOut && msg.content) {
+        window.AetherApp.speechOut.stop();
+        window.AetherApp.speechOut.speak(msg.content);
+      }
+    });
+  }
   if (msg.status === 'streaming') el.classList.add('streaming');
   if (msg.status === 'error') el.classList.add('error');
   var dots = el.querySelector('.typing-dots');

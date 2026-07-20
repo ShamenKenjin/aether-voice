@@ -333,19 +333,11 @@ Aether.UI.prototype._bindSettings = function() {
   document.getElementById('set-rate').addEventListener('input', function() {
     document.getElementById('rate-value').textContent = this.value + 'x';
   });
-  document.getElementById('set-pitch').addEventListener('input', function() {
-    var el = document.getElementById('pitch-value');
-    if (el) el.textContent = this.value;
-  });
 
   document.getElementById('set-lang').addEventListener('change', function() {
     Aether.SETTINGS.lang = this.value;
     self._updateTexts();
     self._loadVoices();
-  });
-
-  document.getElementById('set-theme').addEventListener('change', function() {
-    Aether.applyTheme(this.value);
   });
 
   document.getElementById('btn-cancel-settings').addEventListener('click', function() { self.hideSettings(); });

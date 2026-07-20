@@ -28,6 +28,10 @@
 
   <!-- ═══ CONTROL BAR ═════════════════════════════ -->
   <div id="control-bar">
+    <button id="btn-history" class="ctrl-btn" title="History">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    </button>
+
     <button id="btn-clear" class="ctrl-btn" title="Clear">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
     </button>
@@ -155,6 +159,22 @@
       <div class="settings-actions">
         <button class="btn btn-ghost" id="btn-close-export"></button>
         <button class="btn btn-accent" id="btn-copy-export"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ HISTORY SIDEBAR ═══════════════════════════ -->
+  <div id="history-overlay" class="overlay hidden" style="justify-content:flex-start;">
+    <div id="history-panel" class="glass-panel history-panel">
+      <div class="history-header">
+        <h2 class="settings-title">History</h2>
+        <button class="ctrl-btn" id="btn-new-chat" title="New Chat" style="width:36px;height:36px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+      </div>
+      <div id="history-list" class="history-list"></div>
+      <div class="settings-actions">
+        <button class="btn btn-ghost" id="btn-close-history">Close</button>
       </div>
     </div>
   </div>

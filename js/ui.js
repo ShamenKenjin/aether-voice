@@ -56,6 +56,11 @@ Aether.UI.prototype._bindControls = function() {
     self.showSettings();
   });
 
+  // History button
+  document.getElementById('btn-history').addEventListener('click', function() {
+    self.showHistory();
+  });
+
   // Clear button
   document.getElementById('btn-clear').addEventListener('click', function() {
     if (self.onClear) self.onClear();
@@ -612,6 +617,77 @@ Aether.UI.prototype._showFilePreview = function(file) {
 
 Aether.UI.prototype._hideFilePreview = function() {
   document.getElementById('file-preview').classList.add('hidden');
+};
+
+// ── Conversation History Sidebar ──────────────────
+
+Aether.UI.prototype.showHistory = function() {
+  this._renderHistoryList();
+  document.getElementById('history-overlay').classList.remove('hidden');
+};
+
+Aether.UI.prototype.hideHistory = function() {
+  document.getElementById('history-overlay').classList.add('hidden');
+};
+
+Aether.UI.prototype._renderHistoryList = function() {
+  var list = Aether.Conversation.listAll();
+  var container = document.getElementById('history-list');
+  var currentId = AetherApp ? AetherApp.conversation.id : '';
+
+  if (list.length === 0) {
+    container.innerHTML = '<div class="history-empty">No past conversations</div>';
+    return;
+  }
+
+  var html = '';
+  for (var i = 0; i < list.length; i++) {
+    var c = list[i];
+    var dateStr = new Date(c.updatedAt).toLocaleDateString();
+    var isActive = c.id === currentId;
+    html +=
+      '<div class="history-item' + (isActive ? ' active' : '') + '" data-id="' + c.id + '">' +
+        '<div class="history-item-info">' +
+          '<div class="history-item-title">' + this._escapeHtml(c.title) + '</div>' +
+          '<div class="history-item-meta">' + c.messageCount + ' messages · ' + dateStr + '</div>' +
+        '</div>' +
+        '<button class="history-item-del" data-del="' + c.id + '">✕</button>' +
+      '</div>';
+  }
+  container.innerHTML = html;
+  this._bindHistoryEvents();
+};
+
+Aether.UI.prototype._bindHistoryEvents = function() {
+  var self = this;
+
+  document.getElementById('btn-close-history').onclick = function() { self.hideHistory(); };
+  document.getElementById('btn-new-chat').onclick = function() {
+    self.hideHistory();
+    if (AetherApp && AetherApp._clearConversation) AetherApp._clearConversation();
+  };
+  document.getElementById('history-overlay').onclick = function(e) {
+    if (e.target === this) self.hideHistory();
+  };
+
+  var items = document.querySelectorAll('#history-list .history-item');
+  for (var i = 0; i < items.length; i++) {
+    items[i].onclick = function(e) {
+      if (e.target.classList.contains('history-item-del')) return;
+      var id = this.dataset.id;
+      self.hideHistory();
+      if (AetherApp && AetherApp._loadConversation) AetherApp._loadConversation(id);
+    };
+  }
+
+  var dels = document.querySelectorAll('#history-list .history-item-del');
+  for (var j = 0; j < dels.length; j++) {
+    dels[j].onclick = function(e) {
+      e.stopPropagation();
+      Aether.Conversation.deleteConv(this.dataset.del);
+      self._renderHistoryList();
+    };
+  }
 };
 
 Aether.UI.prototype._readFileContent = function(file, callback) {

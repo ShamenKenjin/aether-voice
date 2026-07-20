@@ -100,6 +100,10 @@ Aether.Conversation.prototype._save = function() {
       updatedAt: this.updatedAt
     });
     localStorage.setItem('aether_conversation', data);
+    // Also save to individual key for history loading
+    localStorage.setItem('aether_conv_' + this.id, data);
+    // Also save to history list
+    Aether.Conversation.saveCurrent(this);
   } catch(e) {
     // localStorage full — trim old messages
     if (this.messages.length > 10) {

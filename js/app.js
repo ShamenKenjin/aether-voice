@@ -395,6 +395,42 @@ Aether.App.prototype._clearConversation = function() {
   this.isMicPressed = false;
 };
 
+Aether.App.prototype._loadConversation = function(id) {
+  // Save current first
+  // Load conversation from localStorage
+  try {
+    var raw = localStorage.getItem('aether_conv_' + id);
+    if (!raw) {
+      // Try to load main conversation
+      raw = localStorage.getItem('aether_conversation');
+      var parsed = raw ? JSON.parse(raw) : null;
+      if (!parsed || parsed.id !== id) return;
+    } else {
+      var parsed = JSON.parse(raw);
+    }
+    if (!parsed || !parsed.messages) return;
+
+    // Clear current state
+    this.llm.abort();
+    this.speechOut.stop();
+    this.speechIn.stop();
+
+    // Load into conversation
+    this.conversation.id = parsed.id;
+    this.conversation.messages = parsed.messages;
+    this.conversation.createdAt = parsed.createdAt || Date.now();
+    this.conversation.updatedAt = parsed.updatedAt || Date.now();
+    this.conversation._save();
+
+    this.ui.renderMessages(this.conversation.messages);
+    this.setState('idle');
+    this.ui.setMicState('');
+    this.isMicPressed = false;
+  } catch(e) {
+    this.ui.showError('Failed to load conversation');
+  }
+};
+
 // ── Bootstrap ────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', function() {
